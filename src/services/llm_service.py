@@ -17,6 +17,7 @@ class LLMService:
         self.gemini_model = "gemini-1.5-flash"
         self.gpt_model = "gpt-4o-mini"
         self.timeout_seconds = 20
+        self.last_error: Optional[dict] = None
 
     @staticmethod
     def _active_provider() -> str:
@@ -81,7 +82,9 @@ class LLMService:
 
     def generate_text(self, prompt: str) -> Optional[str]:
         """Return model text when available; otherwise return None."""
+        self.last_error = None
         if not self.is_enabled():
+            self.last_error = {"reason": "disabled_or_missing_key"}
             return None
 
         provider = self._active_provider()
@@ -90,6 +93,7 @@ class LLMService:
     def _generate_with_gemini(self, prompt: str) -> Optional[str]:
         api_key = self._provider_key("gemini")
         if not api_key:
+            self.last_error = {"reason": "missing_gemini_api_key"}
             return None
 
         url = (
@@ -116,26 +120,31 @@ class LLMService:
                     "Gemini call failed with status %s. Falling back to deterministic output.",
                     response.status_code,
                 )
+                self.last_error = {"status_code": response.status_code, "response": response.text}
                 return None
 
             body = response.json()
             candidates = body.get("candidates") or []
             if not candidates:
+                self.last_error = {"reason": "empty_candidates", "response": body}
                 return None
 
             parts = candidates[0].get("content", {}).get("parts", [])
             if not parts:
+                self.last_error = {"reason": "empty_parts", "response": body}
                 return None
 
             text = parts[0].get("text")
             return text.strip() if isinstance(text, str) else None
         except Exception as exc:
             logger.warning("Gemini call error: %s. Using deterministic fallback.", exc)
+            self.last_error = {"exception": str(exc)}
             return None
 
     def _generate_with_gpt(self, prompt: str) -> Optional[str]:
         api_key = self._provider_key("gpt")
         if not api_key:
+            self.last_error = {"reason": "missing_gpt_api_key"}
             return None
 
         url = "https://api.openai.com/v1/chat/completions"
@@ -164,21 +173,25 @@ class LLMService:
                     "GPT call failed with status %s. Falling back to deterministic output.",
                     response.status_code,
                 )
+                self.last_error = {"status_code": response.status_code, "response": response.text}
                 return None
 
             body = response.json()
             choices = body.get("choices") or []
             if not choices:
+                self.last_error = {"reason": "empty_choices", "response": body}
                 return None
 
             message = choices[0].get("message", {})
             content = message.get("content")
             if not isinstance(content, str):
+                self.last_error = {"reason": "non_str_content", "response": body}
                 return None
 
             return content.strip()
         except Exception as exc:
             logger.warning("GPT call error: %s. Using deterministic fallback.", exc)
+            self.last_error = {"exception": str(exc)}
             return None
 
     @staticmethod
