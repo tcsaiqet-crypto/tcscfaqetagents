@@ -39,6 +39,7 @@ class IntakeManifest(BaseModel):
     total_size_bytes: int
     files: List[FileMetadata] = Field(default_factory=list)
     doc_files: List[str] = Field(default_factory=list)
+    excluded_file_count: int = 0
     created_at: str
 
 
@@ -118,7 +119,41 @@ class ApplicationFlow(BaseModel):
     description: str
 
 
+class RequirementType(str, Enum):
+    Functional = "Functional"
+    NonFunctional = "NonFunctional"
+    Security = "Security"
+    Performance = "Performance"
+    Accessibility = "Accessibility"
+    Reliability = "Reliability"
+    Integration = "Integration"
+    Compliance = "Compliance"
+    DataQuality = "DataQuality"
+    Usability = "Usability"
+    Uncategorized = "Uncategorized"
+
+
+class Requirement(BaseModel):
+    requirement_id: str
+    title: str
+    description: str
+    type: RequirementType
+    category_id: str
+    source_evidence: str
+    confidence: str = "High"
+
+
+class RequirementCategory(BaseModel):
+    category_id: str
+    name: str
+    type: RequirementType
+    description: str
+    requirements: List[Requirement] = Field(default_factory=list)
+
+
 class ApplicationUnderstanding(BaseModel):
+    requirements: List[Requirement] = Field(default_factory=list)
+    requirement_categories: List[RequirementCategory] = Field(default_factory=list)
     summary: str
     architecture_notes: str
     quality_score_percentage: float = 0.0
@@ -156,6 +191,9 @@ class TestCase(BaseModel):
     provenance: Dict[str, Any] = Field(default_factory=dict)
     upstream_ids: List[str] = Field(default_factory=list)
     validation_status: str = "VALIDATED"
+    requirement_category_id: Optional[str] = None
+    requirement_type: Optional[str] = None
+    source_gap_id: Optional[str] = None
 
 
 class TestSuite(BaseModel):
@@ -270,4 +308,3 @@ class AppState(BaseModel):
     status: str = "idle"
     progress: float = 0.0
     last_error: Optional[Dict[str, Any]] = None
-

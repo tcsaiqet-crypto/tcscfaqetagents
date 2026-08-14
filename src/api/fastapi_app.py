@@ -11,9 +11,13 @@ from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
 from schemas.contracts import AppState, ApplicationUnderstanding, IntakeManifest
+from src.config import config
 from src.services.run_state_service import create_run_state, load_run_state, update_run_status, save_run_state
+from src.services.ai_settings_store import load_ai_settings_dict, save_ai_settings_dict
 from src.services.zip_service import ZipService
 from src.agents.understanding_agent import UnderstandingAgent, AIRequiredFailureException
+from src.services.llm_service import LLMService
+from src.utils.security import SecurityError
 from src.utils.logger import logger
 
 app = FastAPI(
@@ -59,9 +63,77 @@ class StatusResponse(BaseModel):
     stage_timestamps: Dict[str, str] = {}
 
 
+class AIProviderConfig(BaseModel):
+    key_present: bool
+    display_name: str
+
+
+class AISettingsResponse(BaseModel):
+    active_provider: str
+    llm_enabled: bool
+    providers: Dict[str, AIProviderConfig]
+    runtime_state: Dict[str, Any]
+    gemini_candidate_models: List[str] = []
+
+
+class UpdateAISettingsRequest(BaseModel):
+    active_provider: str
+    provider_keys: Dict[str, str] = {}
+
+
 @app.get("/api/v1/health")
 def health_check():
     return {"status": "ok", "service": "QET FastAPI Runtime Layer"}
+
+
+def _build_ai_settings_response() -> AISettingsResponse:
+    llm = LLMService()
+    active_provider = config.get_active_provider()
+    runtime_state = llm.get_runtime_status()
+    providers = {
+        "gemini": AIProviderConfig(
+            key_present=bool(config.get_provider_api_key("gemini")),
+            display_name="Google Gemini",
+        ),
+        "gpt": AIProviderConfig(
+            key_present=bool(config.get_provider_api_key("gpt")),
+            display_name="OpenAI GPT",
+        ),
+    }
+    gemini_models: List[str] = []
+    gemini_key = config.get_provider_api_key("gemini")
+    if gemini_key:
+        gemini_models = llm.list_gemini_candidates(gemini_key)
+    return AISettingsResponse(
+        active_provider=active_provider,
+        llm_enabled=config.is_llm_enabled(),
+        providers=providers,
+        runtime_state=runtime_state,
+        gemini_candidate_models=gemini_models[:8],
+    )
+
+
+@app.get("/api/v1/ai/settings", response_model=AISettingsResponse)
+def get_ai_settings():
+    return _build_ai_settings_response()
+
+
+@app.post("/api/v1/ai/settings", response_model=AISettingsResponse)
+def update_ai_settings(req: UpdateAISettingsRequest):
+    active_provider = "gpt" if req.active_provider.strip().lower() == "gpt" else "gemini"
+    current = load_ai_settings_dict()
+    provider_keys = current.get("provider_keys", {}) if isinstance(current, dict) else {}
+    if not isinstance(provider_keys, dict):
+        provider_keys = {}
+
+    for provider, value in req.provider_keys.items():
+        normalized_provider = "gpt" if str(provider).strip().lower() == "gpt" else "gemini"
+        clean_value = str(value).strip()
+        if clean_value:
+            provider_keys[normalized_provider] = clean_value
+
+    save_ai_settings_dict(active_provider=active_provider, provider_keys=provider_keys)
+    return _build_ai_settings_response()
 
 
 @app.post("/api/v1/runs", response_model=CreateRunResponse)
@@ -130,9 +202,10 @@ async def upload_codebase(run_id: str, file: UploadFile = File(...)):
         zip_service = ZipService(target_dir=Path("uploads"))
         manifest = zip_service.process_zip_upload(run_id, zip_path, file.filename)
     except Exception as e:
-        err = {"error_code": "zip_extraction_failed", "error_message": str(e), "diagnostics": {"file": file.filename}}
+        error_code = "zip_validation_failed" if isinstance(e, SecurityError) else "zip_extraction_failed"
+        err = {"error_code": error_code, "error_message": str(e), "diagnostics": {"file": file.filename}}
         update_run_status(run_id, status="error", progress=45.0, error=err)
-        raise HTTPException(status_code=400, detail=f"Failed to extract codebase ZIP: {str(e)}")
+        raise HTTPException(status_code=400, detail=err)
 
     state = load_run_state(run_id)
     if state and state.intake_manifest and state.intake_manifest.doc_files:
@@ -170,6 +243,16 @@ def _execute_understanding_task(run_id: str):
     agent = UnderstandingAgent(run_id=run_id)
     try:
         updated_state, provenance = agent.run_ai_required(state)
+        
+        # Run categorizer stage if active
+        if config.features.enable_requirement_categorization:
+            from src.agents.requirement_categorizer import RequirementCategorizer
+            categorizer = RequirementCategorizer(run_id=run_id)
+            if not categorizer.llm.is_enabled():
+                updated_state = categorizer.run(updated_state)
+            else:
+                updated_state, cat_prov = categorizer.run_ai_required(updated_state)
+
         save_run_state(updated_state)
         update_run_status(run_id, status="understanding_ready", progress=100.0)
     except AIRequiredFailureException as e:
@@ -233,22 +316,106 @@ def get_understanding(run_id: str):
         "progress": state.progress
     }
 
+@app.get("/api/v1/runs/{run_id}/coverage")
+def get_requirement_coverage(run_id: str):
+    state = load_run_state(run_id)
+    if not state:
+        raise HTTPException(status_code=404, detail=f"Run {run_id} not found")
+        
+    und = state.understanding
+    if not und or not getattr(und, "requirements", None):
+        return {
+            "run_id": run_id,
+            "total_requirements": 0,
+            "covered_requirements": 0,
+            "coverage_percentage": 0.0,
+            "categories": [],
+            "requirements": []
+        }
+        
+    # Get all test cases
+    test_cases = []
+    if state.test_suite and state.test_suite.test_cases:
+        test_cases = state.test_suite.test_cases
+        
+    # Map requirements to test cases
+    req_to_cases = {}
+    for tc in test_cases:
+        req_id = tc.requirement_id
+        if req_id:
+            req_to_cases[req_id] = req_to_cases.get(req_id, [])
+            req_to_cases[req_id].append(tc.case_id)
+            
+    reqs_out = []
+    covered_count = 0
+    for req in und.requirements:
+        mapped = req_to_cases.get(req.requirement_id, [])
+        is_covered = len(mapped) > 0
+        if is_covered:
+            covered_count += 1
+            
+        reqs_out.append({
+            "requirement_id": req.requirement_id,
+            "title": req.title,
+            "description": req.description,
+            "type": req.type,
+            "category_id": req.category_id,
+            "source_evidence": req.source_evidence,
+            "confidence": req.confidence,
+            "is_covered": is_covered,
+            "mapped_test_cases": mapped
+        })
+        
+    # Categories coverage
+    categories_out = []
+    for cat in und.requirement_categories:
+        cat_reqs = [r for r in reqs_out if r["category_id"] == cat.category_id]
+        cat_total = len(cat_reqs)
+        cat_covered = sum(1 for r in cat_reqs if r["is_covered"])
+        cat_percentage = (cat_covered / cat_total * 100.0) if cat_total > 0 else 100.0
+        
+        categories_out.append({
+            "category_id": cat.category_id,
+            "name": cat.name,
+            "type": cat.type,
+            "description": cat.description,
+            "total_requirements": cat_total,
+            "covered_requirements": cat_covered,
+            "coverage_percentage": round(cat_percentage, 1),
+            "requirements": cat_reqs
+        })
+        
+    total_reqs = len(und.requirements)
+    overall_percentage = (covered_count / total_reqs * 100.0) if total_reqs > 0 else 0.0
+    
+    return {
+        "run_id": run_id,
+        "total_requirements": total_reqs,
+        "covered_requirements": covered_count,
+        "coverage_percentage": round(overall_percentage, 1),
+        "categories": categories_out,
+        "requirements": reqs_out
+    }
+
 from fastapi.staticfiles import StaticFiles
 import os
 
-# Resolve dist directory path
+# Resolve dist directory path across the layouts this API can be launched from:
 # __file__ is backend/src/api/fastapi_app.py
-# parents[2] is backend/
-dist_path = Path(__file__).resolve().parents[2] / "dist"
-if not dist_path.exists():
-    # Also check sibling directories if running from QET agents
-    dist_path = Path(__file__).resolve().parents[3] / "qet-react-ui" / "dist"
+# parents[2] is backend/, parents[3] is the repo root (where `npm run build` outputs dist/)
+_dist_candidates = [
+    Path(__file__).resolve().parents[2] / "dist",
+    Path(__file__).resolve().parents[3] / "dist",
+    Path(__file__).resolve().parents[3] / "qet-react-ui" / "dist",
+]
+dist_path = next((p for p in _dist_candidates if p.exists() and os.listdir(p)), _dist_candidates[0])
 
 if dist_path.exists() and os.listdir(dist_path):
     logger.info(f"Serving static production React build from {dist_path}")
     app.mount("/", StaticFiles(directory=str(dist_path), html=True), name="static")
 else:
     logger.info("React production build not detected at dist/. Serving API health check at root.")
+
 
 @app.get("/", response_class=HTMLResponse)
 def serve_vanilla_spa():
@@ -414,6 +581,17 @@ def serve_vanilla_spa():
     .tab-btn:disabled {
       opacity: 0.35;
       cursor: not-allowed;
+    }
+    
+    /* Coverage Matrix Styles */
+    section#sect-coverage {
+      display: none;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+    
+    section#sect-coverage.active {
+      display: flex;
     }
 
     main {
@@ -968,7 +1146,8 @@ def serve_vanilla_spa():
     // Tab Navigation
     const tabs = {
       'home': { btn: document.getElementById('tab-home-btn'), sect: document.getElementById('sect-home') },
-      'understanding': { btn: document.getElementById('tab-understanding-btn'), sect: document.getElementById('sect-understanding') }
+      'understanding': { btn: document.getElementById('tab-understanding-btn'), sect: document.getElementById('sect-understanding') },
+      'coverage': { btn: document.getElementById('tab-coverage-btn'), sect: document.getElementById('sect-coverage') }
     };
 
     function switchTab(target) {
@@ -982,6 +1161,7 @@ def serve_vanilla_spa():
 
     tabs.home.btn.addEventListener('click', () => switchTab('home'));
     tabs.understanding.btn.addEventListener('click', () => switchTab('understanding'));
+    tabs.coverage.btn.addEventListener('click', () => switchTab('coverage'));
     document.getElementById('proceed-btn').addEventListener('click', () => switchTab('understanding'));
     document.getElementById('reset-run-btn').addEventListener('click', () => initRun());
 
@@ -1114,6 +1294,60 @@ def serve_vanilla_spa():
     }
 
     // Render AI Results
+    
+    async function fetchCoverage() {
+      if (!runId) return;
+      try {
+        const res = await fetch(API_BASE + '/runs/' + runId + '/coverage');
+        const data = await res.json();
+        
+        document.getElementById('coverage-percentage-val').innerText = data.coverage_percentage + '%';
+        document.getElementById('coverage-bar-fill').style.width = data.coverage_percentage + '%';
+        document.getElementById('total-requirements-val').innerText = data.total_requirements;
+        
+        const list = document.getElementById('coverage-categories-list');
+        if (data.categories && data.categories.length > 0) {
+          list.innerHTML = data.categories.map(cat => `
+            <div class="upload-card" style="display:flex; flex-direction:column; gap:0.75rem;">
+              <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--card-border); padding-bottom:0.5rem;">
+                <h4 style="font-size:0.9rem; font-weight:600;">${cat.name} (${cat.type})</h4>
+                <div style="font-size:0.75rem; font-family:monospace; background:#292524; padding:0.25rem 0.5rem; border-radius:0.25rem;">
+                  Coverage: ${cat.covered_requirements}/${cat.total_requirements} (${cat.coverage_percentage}%)
+                </div>
+              </div>
+              <p style="font-size:0.7rem; color:var(--muted-text);">${cat.description}</p>
+              <div style="display:flex; flex-direction:column; gap:0.5rem; margin-top:0.5rem;">
+                ${cat.requirements.map(req => `
+                  <div style="display:flex; justify-content:space-between; align-items:center; background:#1c1917; padding:0.5rem; border-radius:0.35rem; font-size:0.7rem;">
+                    <div style="max-width:70%;">
+                      <strong style="color:#06b6d4;">${req.requirement_id}: ${req.title}</strong>
+                      <p style="color:var(--muted-text); font-size:0.65rem; margin-top:0.15rem;">${req.description}</p>
+                      <p style="font-size:0.6rem; color:#a8a29e; margin-top:0.25rem;">Evidence: <code>${req.source_evidence}</code> (Confidence: ${req.confidence})</p>
+                    </div>
+                    <div style="display:flex; flex-direction:column; align-items:end; gap:0.25rem;">
+                      ${req.is_covered 
+                        ? `<span style="background:#065f46; color:#34d399; font-weight:600; padding:0.15rem 0.4rem; border-radius:0.25rem; font-size:0.6rem;"> Covered</span>`
+                        : `<span style="background:#78350f; color:#fbbf24; font-weight:600; padding:0.15rem 0.4rem; border-radius:0.25rem; font-size:0.6rem;"> Uncovered</span>`
+                      }
+                      ${req.mapped_test_cases && req.mapped_test_cases.length > 0
+                        ? `<span style="font-size:0.6rem; color:var(--muted-text);">Tests: ${req.mapped_test_cases.join(', ')}</span>`
+                        : ''
+                      }
+                    </div>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          `).join('');
+        } else {
+          list.innerHTML = '<p style="font-size:0.75rem; color:var(--muted-text)">No requirement categories mapped yet.</p>';
+        }
+      } catch (err) {
+        console.error('Error fetching coverage:', err);
+      }
+    }
+
+
     function renderUnderstanding(und) {
       document.getElementById('understanding-results').style.display = 'flex';
       document.getElementById('prov-provider').innerText = und.provenance ? und.provenance.provider : 'gemini';

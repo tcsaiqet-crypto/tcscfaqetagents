@@ -5,9 +5,11 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Any, Optional
-from schemas.contracts import AppState, TestCase, TestSuite
+from schemas.contracts import AppState, TestCase, TestSuite, RequirementType
 from src.agents.base_agent import BaseAgent
 from src.services.llm_service import LLMService
+from src.config import config
+from src.utils.errors import AIRequiredFailureException
 from src.utils.logger import logger
 
 
@@ -24,25 +26,31 @@ class TestCaseAgent(BaseAgent):
         self.llm = LLMService()
 
     def run(self, state: AppState) -> AppState:
-        """Execute Phase 3 Test Case Generation and save artifacts."""
+        """Execute Phase 3 Test Case Generation and save artifacts. AI-required: raises
+        AIRequiredFailureException with diagnostics instead of falling back to sample data."""
         logger.info("Executing Phase 3 Test Case Generation Agent...")
 
-        test_cases = self._generate_test_cases(state)
-        fallback_used = True
+        if not self.llm.is_enabled():
+            raise AIRequiredFailureException(
+                error_code="provider_disabled",
+                error_message="No AI provider is enabled/configured for test case generation.",
+                diagnostics={"remediation": "Configure GEMINI_API_KEY/OPENAI_API_KEY or a key file under backend/keys/."}
+            )
+
+        test_cases = self._generate_ai_test_cases(state)
+        if not test_cases:
+            raise AIRequiredFailureException(
+                error_code="invalid_model_json",
+                error_message="AI provider did not return usable test cases.",
+                diagnostics={"provider": self.llm._active_provider(), **(self.llm.last_error or {})}
+            )
+
         provenance = {
             "generator": "TestCaseAgent",
             "generated_at": datetime.now(timezone.utc).isoformat(),
-            "mode": "derived-fallback",
-            "provider": "deterministic",
+            "mode": "ai-first",
+            "provider": self.llm._active_provider(),
         }
-
-        if self.llm.is_enabled():
-            ai_cases = self._generate_ai_test_cases(state)
-            if ai_cases:
-                test_cases = ai_cases
-                fallback_used = False
-                provenance["mode"] = "ai-first"
-                provenance["provider"] = self.llm._active_provider()
 
         suite = TestSuite(
             suite_id="TS-CFA-V1",
@@ -51,7 +59,7 @@ class TestCaseAgent(BaseAgent):
             test_cases=test_cases,
             provenance=provenance,
             validation_status="VALIDATED",
-            fallback_used=fallback_used,
+            fallback_used=False,
         )
 
         state.test_suite = suite
@@ -64,18 +72,31 @@ class TestCaseAgent(BaseAgent):
 
     def _generate_ai_test_cases(self, state: AppState) -> List[TestCase]:
         """Generate AI-first cases in strict JSON shape."""
-        understanding_text = state.understanding.summary if state.understanding else "CFA Digital Journey"
-        feature_areas = []
-        if state.understanding and state.understanding.components:
-            feature_areas = [component.name for component in state.understanding.components[:5]]
-        prompt = (
-            "Return strict JSON object with key 'test_cases' as an array with 10 to 14 items covering Positive, Negative, Boundary, Validation, and Error-Handling cases. "
-            "Each item requires: case_id, title, case_type, feature_area, requirement_id, description, priority, risk_level, automation_candidate, preconditions, steps, expected_result, evidence_source, confidence, review_status, synthetic_data_keys. "
-            "Use case_id format like TC-POS-001, TC-NEG-002, TC-BND-001, TC-VAL-001, TC-ERR-001. "
-            "Return only JSON.\n"
-            f"Application summary: {understanding_text}\n"
-            f"Feature areas: {feature_areas}\n"
-        )
+        # Check if requirement categorization is active
+        if config.features.enable_requirement_categorization and state.understanding and state.understanding.requirements:
+            req_details = [{"id": r.requirement_id, "title": r.title, "type": r.type, "category_id": r.category_id} for r in state.understanding.requirements]
+            prompt = (
+                "Return strict JSON object with key 'test_cases' as an array with 10 to 14 items. "
+                "For the following categorized requirements, generate corresponding test cases covering Positive, Negative, Boundary, Validation, and Error-Handling permutations. "
+                "Each item requires: case_id, title, case_type, feature_area, requirement_id, requirement_category_id, requirement_type, description, priority, risk_level, automation_candidate, preconditions, steps, expected_result, evidence_source, confidence, review_status, synthetic_data_keys. "
+                "Use case_id format like TC-POS-001, etc. "
+                "Return only JSON.\n"
+                f"Categorized Requirements: {req_details}\n"
+            )
+        else:
+            understanding_text = state.understanding.summary if state.understanding else "CFA Digital Journey"
+            feature_areas = []
+            if state.understanding and state.understanding.components:
+                feature_areas = [component.name for component in state.understanding.components[:5]]
+            prompt = (
+                "Return strict JSON object with key 'test_cases' as an array with 10 to 14 items covering Positive, Negative, Boundary, Validation, and Error-Handling cases. "
+                "Each item requires: case_id, title, case_type, feature_area, requirement_id, description, priority, risk_level, automation_candidate, preconditions, steps, expected_result, evidence_source, confidence, review_status, synthetic_data_keys. "
+                "Use case_id format like TC-POS-001, TC-NEG-002, TC-BND-001, TC-VAL-001, TC-ERR-001. "
+                "Return only JSON.\n"
+                f"Application summary: {understanding_text}\n"
+                f"Feature areas: {feature_areas}\n"
+            )
+            
         llm_text = self.llm.generate_text(prompt)
         llm_data = self.llm.parse_json_payload(llm_text)
         if not llm_data:
@@ -93,6 +114,8 @@ class TestCaseAgent(BaseAgent):
                 case_type = str(item.get("case_type", "Validation"))
                 feature_area = str(item.get("feature_area", "General"))
                 requirement_id = str(item.get("requirement_id") or self._requirement_id_for_feature(feature_area))
+                req_cat_id = str(item.get("requirement_category_id") or "")
+                req_type = str(item.get("requirement_type") or "")
                 steps = item.get("steps") if isinstance(item.get("steps"), list) else ["Execute generated scenario steps in automation harness."]
                 preconditions = item.get("preconditions") if isinstance(item.get("preconditions"), list) else []
                 synthetic_data_keys = item.get("synthetic_data_keys") if isinstance(item.get("synthetic_data_keys"), list) else self._default_synthetic_keys(case_type, feature_area)
@@ -103,6 +126,8 @@ class TestCaseAgent(BaseAgent):
                         case_type=case_type,
                         feature_area=feature_area,
                         requirement_id=requirement_id,
+                        requirement_category_id=req_cat_id or None,
+                        requirement_type=req_type or None,
                         description=str(item.get("description", "Model-generated scenario.")),
                         expected_result=str(item.get("expected_result", "Expected behavior validated.")),
                         priority=str(item.get("priority", "Medium")),
@@ -127,6 +152,49 @@ class TestCaseAgent(BaseAgent):
     def _generate_test_cases(self, state: Optional[AppState] = None) -> List[TestCase]:
         """Generate structured test cases from Understanding outputs instead of a fixed catalog."""
         understanding = state.understanding if state else None
+        
+        # Check feature flag
+        if config.features.enable_requirement_categorization and understanding and understanding.requirements:
+            generated: List[TestCase] = []
+            counters = {"Positive": 0, "Negative": 0, "Boundary": 0, "Validation": 0, "Error-Handling": 0}
+            case_specs = [
+                ("Positive", "happy path validates", True),
+                ("Negative", "invalid inputs rejected safely", True),
+                ("Boundary", "boundary cases handled correctly", True),
+                ("Validation", "validation warnings checked", True),
+                ("Error-Handling", "error recovery states tested", False),
+            ]
+            
+            for idx, req in enumerate(understanding.requirements, start=1):
+                for case_type, outcome, autocan in case_specs:
+                    counters[case_type] += 1
+                    case_id = f"TC-{self._case_type_prefix(case_type)}-{counters[case_type]:03d}"
+                    
+                    generated.append(TestCase(
+                        case_id=case_id,
+                        title=f"{req.title} - {case_type} Scenario",
+                        case_type=case_type,
+                        feature_area=req.category_id,
+                        requirement_id=req.requirement_id,
+                        requirement_category_id=req.category_id,
+                        requirement_type=req.type.value,
+                        description=f"Verify requirement {req.requirement_id}: {req.description}",
+                        expected_result=f"Verify {req.title.lower()} {outcome}.",
+                        priority="High" if case_type in {"Positive", "Negative"} else "Medium",
+                        risk_level="Medium",
+                        automation_candidate=autocan,
+                        preconditions=["System state initialized for requirement " + req.requirement_id],
+                        steps=[f"Interact with controls mapped to requirement {req.requirement_id}.", "Perform " + case_type.lower() + " check."],
+                        evidence_source=req.source_evidence,
+                        confidence="High",
+                        review_status="Approved" if case_type in {"Positive", "Negative"} else "Generated",
+                        synthetic_data_keys=self._default_synthetic_keys(case_type, req.category_id),
+                        provenance={"generator": "TestCaseAgent", "mode": "category-driven-fallback"},
+                        upstream_ids=[req.requirement_id],
+                        validation_status="VALIDATED"
+                    ))
+            return generated
+
         feature_sources = self._derive_feature_sources(understanding)
         case_specs = [
             ("Positive", "happy path behavior validates", True),

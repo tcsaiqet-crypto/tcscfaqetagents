@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 from typing import Set, Literal
 from pydantic import BaseModel, Field
+from src.services.ai_settings_store import load_ai_settings_dict
 
 
 class ExecutionFeatureFlags(BaseModel):
@@ -14,6 +15,7 @@ class ExecutionFeatureFlags(BaseModel):
     performance_testing_enabled: bool = False
     accessibility_execution_enabled: bool = False
     security_scanning_enabled: bool = False
+    enable_requirement_categorization: bool = Field(default_factory=lambda: os.getenv("QET_ENABLE_REQUIREMENT_CATEGORIZATION", "0") in {"1", "true", "yes"})
 
 
 class AppConfig(BaseModel):
@@ -22,12 +24,24 @@ class AppConfig(BaseModel):
     version: str = "1.0.0"
     
     # Safe ZIP Extraction Limits
-    max_zip_file_count: int = 500
-    max_zip_total_bytes: int = 100 * 1024 * 1024  # 100 MB
+    # Applied only to *useful* files remaining after junk_dir_patterns exclusion,
+    # so legitimate codebases with large dependency trees aren't rejected outright.
+    max_zip_file_count: int = 20000
+    max_zip_total_bytes: int = 300 * 1024 * 1024  # 300 MB
     max_single_file_bytes: int = 10 * 1024 * 1024  # 10 MB
     forbidden_extensions: Set[str] = Field(
         default_factory=lambda: {
             ".exe", ".dll", ".bat", ".cmd", ".sh", ".ps1", ".vbs", ".pyc", ".so", ".dylib"
+        }
+    )
+    # Directory names skipped during ZIP extraction (dependency/build/vcs noise, not useful for analysis)
+    junk_dir_patterns: Set[str] = Field(
+        default_factory=lambda: {
+            "node_modules", ".git", ".hg", ".svn", "dist", "build", "out",
+            ".next", ".nuxt", "venv", ".venv", "env", "__pycache__",
+            ".pytest_cache", ".mypy_cache", "target", "vendor", "bin", "obj",
+            "coverage", ".idea", ".vscode", ".tox", "site-packages",
+            ".gradle", ".terraform", "egg-info",
         }
     )
     
@@ -59,6 +73,9 @@ class AppConfig(BaseModel):
         return Path(__file__).parent.parent / "keys"
 
     def get_active_provider(self) -> Literal["gemini", "gpt"]:
+        runtime_provider = str(load_ai_settings_dict().get("active_provider", "")).strip().lower()
+        if runtime_provider in {"gemini", "gpt"}:
+            return "gpt" if runtime_provider == "gpt" else "gemini"
         provider = os.getenv("QET_AI_PROVIDER", "gemini").strip().lower()
         return "gpt" if provider == "gpt" else "gemini"
 
@@ -70,6 +87,11 @@ class AppConfig(BaseModel):
         return True
 
     def get_provider_api_key(self, provider: Literal["gemini", "gpt"]) -> str:
+        runtime_keys = load_ai_settings_dict().get("provider_keys", {})
+        runtime_key = str(runtime_keys.get(provider, "")).strip() if isinstance(runtime_keys, dict) else ""
+        if runtime_key:
+            return runtime_key
+
         if provider == "gemini":
             env_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
             if env_key:

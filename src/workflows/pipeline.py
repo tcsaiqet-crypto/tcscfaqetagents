@@ -2,6 +2,8 @@ from datetime import datetime, timezone
 from src.models.schemas import AppState
 from src.agents.understanding_agent import UnderstandingAgent
 from src.agents.test_case_agent import TestCaseAgent
+from src.agents.requirement_categorizer import RequirementCategorizer
+from src.config import config
 from src.agents.test_data_agent import TestDataAgent
 from src.agents.playwright_agent import PlaywrightAgent
 from src.agents.report_agent import ReportAgent
@@ -11,10 +13,17 @@ from src.utils.logger import logger
 class SequentialQETPipeline:
     """Sequential Agent Execution Pipeline for QET MVP."""
 
-    STAGES = ["Understanding", "Test Cases", "Test Data", "Playwright", "Report"]
+    @property
+    def STAGES(self):
+        stages = ["Understanding"]
+        if config.features.enable_requirement_categorization:
+            stages.append("Requirement Categorization")
+        stages.extend(["Test Cases", "Test Data", "Playwright", "Report"])
+        return stages
 
     def __init__(self):
         self.understanding_agent = UnderstandingAgent()
+        self.requirement_categorizer = RequirementCategorizer()
         self.test_case_agent = TestCaseAgent()
         self.test_data_agent = TestDataAgent()
         self.playwright_agent = PlaywrightAgent()
@@ -79,7 +88,11 @@ class SequentialQETPipeline:
     def _dependencies_satisfied(self, state: AppState, stage: str) -> bool:
         if stage == "Understanding":
             return state.intake_manifest is not None
+        if stage == "Requirement Categorization":
+            return state.understanding is not None
         if stage == "Test Cases":
+            if config.features.enable_requirement_categorization:
+                return state.understanding is not None and len(state.understanding.requirements) > 0
             return state.understanding is not None
         if stage == "Test Data":
             return state.test_suite is not None
@@ -97,6 +110,8 @@ class SequentialQETPipeline:
 
             if stage == "Understanding":
                 state = self.understanding_agent.run(state)
+            elif stage == "Requirement Categorization":
+                state = self.requirement_categorizer.run(state)
             elif stage == "Test Cases":
                 state = self.test_case_agent.run(state)
             elif stage == "Test Data":
@@ -131,6 +146,8 @@ class SequentialQETPipeline:
     def _validate_stage_outputs(self, stage: str, state: AppState) -> bool:
         if stage == "Understanding":
             return state.understanding is not None and len(state.understanding.summary) > 0
+        if stage == "Requirement Categorization":
+            return state.understanding is not None and len(state.understanding.requirements) > 0
         if stage == "Test Cases":
             return state.test_suite is not None and len(state.test_suite.test_cases) > 0
         if stage == "Test Data":
@@ -144,6 +161,8 @@ class SequentialQETPipeline:
     def _extract_stage_provenance(self, stage: str, state: AppState) -> dict:
         if stage == "Understanding" and state.understanding:
             return getattr(state.understanding, "provenance", {}) or {"stage": "Understanding", "status": "COMPLETED"}
+        if stage == "Requirement Categorization" and state.understanding:
+            return {"stage": "Requirement Categorization", "count": len(state.understanding.requirements)}
         if stage == "Test Cases" and state.test_suite:
             return getattr(state.test_suite, "provenance", {}) or {"stage": "Test Cases", "status": "COMPLETED"}
         if stage == "Test Data" and state.synthetic_dataset:
@@ -160,6 +179,10 @@ class SequentialQETPipeline:
 
         if "Understanding" in downstream:
             state.understanding = None
+        if "Requirement Categorization" in downstream:
+            if state.understanding:
+                state.understanding.requirements = []
+                state.understanding.requirement_categories = []
         if "Test Cases" in downstream:
             state.test_suite = None
         if "Test Data" in downstream:
@@ -177,6 +200,8 @@ class SequentialQETPipeline:
     def _has_stage_output(self, state: AppState, stage: str) -> bool:
         if stage == "Understanding":
             return state.understanding is not None
+        if stage == "Requirement Categorization":
+            return state.understanding is not None and len(state.understanding.requirements) > 0
         if stage == "Test Cases":
             return state.test_suite is not None
         if stage == "Test Data":

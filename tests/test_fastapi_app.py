@@ -15,7 +15,8 @@ client = TestClient(app)
 def test_read_root():
     response = client.get("/")
     assert response.status_code == 200
-    assert "QET API Layer" in response.text or "QET Agent" in response.text
+    # Serves the built React app (dist/) when present, else the vanilla fallback/health text.
+    assert "<div id=\"root\">" in response.text or "QET API Layer" in response.text or "QET Agent" in response.text
 
     health_resp = client.get("/api/v1/health")
     assert health_resp.status_code == 200
@@ -78,3 +79,39 @@ def test_understanding_ai_failfast_when_no_key(monkeypatch: pytest.MonkeyPatch):
 
     assert exc_info.value.error_code == "provider_key_missing"
     assert exc_info.value.diagnostics is not None
+
+
+def test_ai_settings_round_trip():
+    get_resp = client.get("/api/v1/ai/settings")
+    assert get_resp.status_code == 200
+    initial = get_resp.json()
+    assert initial["active_provider"] in ["gemini", "gpt"]
+    assert "providers" in initial
+
+    save_resp = client.post(
+        "/api/v1/ai/settings",
+        json={
+            "active_provider": "gpt",
+            "provider_keys": {"gpt": "test-openai-key", "gemini": "test-gemini-key"},
+        },
+    )
+    assert save_resp.status_code == 200
+    saved = save_resp.json()
+    assert saved["active_provider"] == "gpt"
+    assert saved["providers"]["gpt"]["key_present"] is True
+    assert saved["providers"]["gemini"]["key_present"] is True
+
+
+def test_get_requirement_coverage_endpoint():
+    run_resp = client.post("/api/v1/runs", json={"project_name": "Coverage API Test"})
+    run_id = run_resp.json()["run_id"]
+
+    # Initial state should return empty lists
+    coverage_resp = client.get(f"/api/v1/runs/{run_id}/coverage")
+    assert coverage_resp.status_code == 200
+    data = coverage_resp.json()
+    assert data["total_requirements"] == 0
+    assert data["coverage_percentage"] == 0.0
+    assert len(data["categories"]) == 0
+    assert len(data["requirements"]) == 0
+
