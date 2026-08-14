@@ -277,7 +277,8 @@ class LLMService:
                 attempts.append({"key_index": key_index, "model": model, **(self.last_error or {})})
         return None, attempts
 
-    def _generate_with_gpt(self, prompt: str, api_key: str) -> Optional[str]:
+    def _generate_with_gpt(self, prompt: str, api_key: Optional[str] = None) -> Optional[str]:
+        api_key = api_key or config.get_provider_api_key("gpt")
         if not api_key:
             return None
 
@@ -442,5 +443,6 @@ class LLMService:
                 depth -= 1
 
         return depth != 0 or in_string or escape
+
 
 

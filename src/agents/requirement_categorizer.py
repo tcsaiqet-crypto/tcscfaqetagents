@@ -1,4 +1,4 @@
-"""Requirement Categorizer Agent - classifies business and technical requirements into categories.
+﻿"""Requirement Categorizer Agent - classifies business and technical requirements into categories.
 
 G3 Hardening (Spec-Kit 006): LLM generation now routes through LLMService.generate_with_gemini()
 and LLMService._generate_with_gpt() instead of making raw HTTP calls with a hardcoded model name.
@@ -83,7 +83,7 @@ class RequirementCategorizer(BaseAgent):
         # diagnostics are handled consistently by the shared LLM service layer.
         llm_text: Optional[str] = None
         if provider == "gpt":
-            llm_text = self.llm._generate_with_gpt(prompt)
+            llm_text = self.llm._generate_with_gpt(prompt, api_key)
             if llm_text is None:
                 err = self.llm.last_error or {}
                 err_code = err.get("error_code", "provider_disabled")
@@ -291,3 +291,4 @@ class RequirementCategorizer(BaseAgent):
         with open(reqs_path, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2)
         logger.info(f"Saved categorized requirements artifact: {reqs_path}")
+
