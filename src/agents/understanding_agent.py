@@ -99,62 +99,27 @@ class UnderstandingAgent(BaseAgent):
             )
 
     def _call_gemini(self, prompt: str, api_key: str) -> str:
-        """Call Gemini using an auto-discovered model; raises AIRequiredFailureException with diagnostics on any failure."""
-        model = self.llm.get_gemini_model(api_key)
-        if not model:
+        """Call Gemini, trying auto-discovered candidate models until one succeeds.
+
+        Raises AIRequiredFailureException with per-attempt diagnostics if all candidates fail.
+        """
+        text, attempts = self.llm.generate_with_gemini(prompt, api_key)
+        if text:
+            return text
+
+        if not attempts:
             raise AIRequiredFailureException(
                 error_code="model_discovery_failed",
-                error_message="Could not discover a Gemini model supporting generateContent for this API key.",
+                error_message="Could not discover any Gemini model supporting generateContent for this API key.",
                 diagnostics={"provider": "gemini", **(self.llm.last_error or {})}
             )
 
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
-        headers = {"Content-Type": "application/json"}
-        payload = {
-            "generationConfig": {"temperature": 0.2, "maxOutputTokens": 900},
-            "contents": [{"parts": [{"text": prompt}]}]
-        }
-        try:
-            res = requests.post(url, json=payload, headers=headers, timeout=self.llm.timeout_seconds)
-            if res.status_code in [401, 403]:
-                raise AIRequiredFailureException(
-                    error_code="provider_key_missing",
-                    error_message="Gemini API key authentication failed (Status 401/403). Please verify your API key.",
-                    diagnostics={
-                        "provider": "gemini",
-                        "model": model,
-                        "status_code": res.status_code,
-                        "response": res.json() if res.headers.get("content-type", "").startswith("application/json") else res.text[:300]
-                    }
-                )
-            elif res.status_code == 404:
-                raise AIRequiredFailureException(
-                    error_code="provider_disabled",
-                    error_message=f"Gemini model '{model}' endpoint not found (Status 404).",
-                    diagnostics={"provider": "gemini", "model": model, "status_code": 404, "response": res.text[:300]}
-                )
-            elif res.status_code != 200:
-                raise AIRequiredFailureException(
-                    error_code="invalid_model_json",
-                    error_message=f"Gemini API returned error status {res.status_code}.",
-                    diagnostics={"provider": "gemini", "model": model, "status_code": res.status_code, "response": res.text[:300]}
-                )
-            body = res.json()
-            return body["candidates"][0]["content"]["parts"][0]["text"].strip()
-        except requests.exceptions.Timeout:
-            raise AIRequiredFailureException(
-                error_code="model_timeout",
-                error_message="Gemini request timed out.",
-                diagnostics={"provider": "gemini", "model": model, "timeout_seconds": self.llm.timeout_seconds}
-            )
-        except AIRequiredFailureException:
-            raise
-        except Exception as e:
-            raise AIRequiredFailureException(
-                error_code="invalid_model_json",
-                error_message=f"Gemini connection error: {str(e)}",
-                diagnostics={"provider": "gemini", "model": model, "exception": str(e)}
-            )
+        last_attempt = attempts[-1]
+        raise AIRequiredFailureException(
+            error_code=last_attempt.get("error_code", "invalid_model_json"),
+            error_message=last_attempt.get("error_message", "All Gemini model candidates failed."),
+            diagnostics={"provider": "gemini", "attempts": attempts}
+        )
 
     def run_ai_required(self, state: AppState) -> Tuple[AppState, Dict[str, Any]]:
         logger.info(f"Executing AI-Required Understanding analysis for run {self.run_id}...")
