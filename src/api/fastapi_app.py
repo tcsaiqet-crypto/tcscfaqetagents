@@ -21,7 +21,7 @@ from src.utils.security import SecurityError
 from src.utils.logger import logger
 
 app = FastAPI(
-    title="QET AI Execution Engine API",
+    title="QET Automated Agents API",
     description="FastAPI Runtime Layer for React-first Home & Understanding flow",
     version="1.0.0"
 )
@@ -1436,4 +1436,5 @@ def serve_vanilla_spa():
 </body>
 </html>
 """
+
 
