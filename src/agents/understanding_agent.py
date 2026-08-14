@@ -1,6 +1,7 @@
 """Application Understanding Specialist Agent — AI-first analysis with deterministic fallback and AI-required failfast mode."""
 
 import json
+import requests
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Any, Optional, Tuple
@@ -63,14 +64,17 @@ class UnderstandingAgent(BaseAgent):
     def run_ai_required(self, state: AppState) -> Tuple[AppState, Dict[str, Any]]:
         logger.info(f"Executing AI-Required Understanding analysis for run {self.run_id}...")
 
-        if not self.llm.is_enabled():
+        provider = self.llm._active_provider()
+        api_key = self.llm._provider_key(provider)
+
+        if not api_key or "placeholder" in api_key.lower() or "your_gemini" in api_key.lower():
             raise AIRequiredFailureException(
                 error_code="provider_key_missing",
-                error_message="Gemini API key missing or provider disabled in AI-required mode.",
+                error_message="Gemini API key missing or set to placeholder in keys/gemapikey1.txt.",
                 diagnostics={
-                    "provider": "gemini",
-                    "reason": "No API key found in keys/gemapikey1.txt or GEMINI_API_KEY environment variable",
-                    "remediation": "Provide a valid Gemini API key in keys/gemapikey1.txt or environment variable GEMINI_API_KEY"
+                    "provider": provider,
+                    "reason": "Missing or placeholder API key",
+                    "remediation": "Please configure a valid Gemini API key in keys/gemapikey1.txt or GEMINI_API_KEY environment variable."
                 }
             )
 
@@ -90,14 +94,101 @@ class UnderstandingAgent(BaseAgent):
             f"Source snapshot:\n{source_snapshot}\n"
         )
 
-        try:
-            llm_text = self.llm.generate_text(prompt)
-        except Exception as e:
-            raise AIRequiredFailureException(
-                error_code="model_timeout",
-                error_message=f"Model execution failed or timed out: {str(e)}",
-                diagnostics={"provider": self.llm._active_provider(), "exception": str(e)}
-            )
+        llm_text = ""
+        
+        if provider == "gpt":
+            url = "https://api.openai.com/v1/chat/completions"
+            headers = {
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {api_key}"
+            }
+            payload = {
+                "model": self.llm.gpt_model,
+                "temperature": 0.2,
+                "max_tokens": 900,
+                "messages": [
+                    {"role": "system", "content": "You are a QA automation engineering assistant."},
+                    {"role": "user", "content": prompt}
+                ]
+            }
+            try:
+                res = requests.post(url, json=payload, headers=headers, timeout=self.llm.timeout_seconds)
+                if res.status_code in [401, 403]:
+                    raise AIRequiredFailureException(
+                        error_code="provider_key_missing",
+                        error_message="OpenAI API key validation failed (Status 401/403).",
+                        diagnostics={"status_code": res.status_code, "response": res.text[:200]}
+                    )
+                elif res.status_code != 200:
+                    raise AIRequiredFailureException(
+                        error_code="provider_disabled",
+                        error_message=f"OpenAI service returned error status {res.status_code}.",
+                        diagnostics={"status_code": res.status_code, "response": res.text[:200]}
+                    )
+                body = res.json()
+                llm_text = body["choices"][0]["message"]["content"].strip()
+            except requests.exceptions.Timeout:
+                raise AIRequiredFailureException(
+                    error_code="model_timeout",
+                    error_message="OpenAI service request timed out.",
+                    diagnostics={"timeout_seconds": self.llm.timeout_seconds}
+                )
+            except AIRequiredFailureException:
+                raise
+            except Exception as e:
+                raise AIRequiredFailureException(
+                    error_code="invalid_model_json",
+                    error_message=f"OpenAI connection error: {str(e)}",
+                    diagnostics={"exception": str(e)}
+                )
+        else:
+            # Gemini Provider
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.llm.gemini_model}:generateContent?key={api_key}"
+            headers = {"Content-Type": "application/json"}
+            payload = {
+                "generationConfig": {"temperature": 0.2, "maxOutputTokens": 900},
+                "contents": [{"parts": [{"text": prompt}]}]
+            }
+            try:
+                res = requests.post(url, json=payload, headers=headers, timeout=self.llm.timeout_seconds)
+                if res.status_code in [401, 403]:
+                    raise AIRequiredFailureException(
+                        error_code="provider_key_missing",
+                        error_message="Gemini API key authentication failed (Status 401/403). Please verify your API key.",
+                        diagnostics={
+                            "provider": "gemini",
+                            "status_code": res.status_code,
+                            "response": res.json() if res.headers.get("content-type", "").startswith("application/json") else res.text[:300]
+                        }
+                    )
+                elif res.status_code == 404:
+                    raise AIRequiredFailureException(
+                        error_code="provider_disabled",
+                        error_message="Gemini model endpoint not found (Status 404).",
+                        diagnostics={"status_code": 404, "response": res.text[:300]}
+                    )
+                elif res.status_code != 200:
+                    raise AIRequiredFailureException(
+                        error_code="invalid_model_json",
+                        error_message=f"Gemini API returned error status {res.status_code}.",
+                        diagnostics={"status_code": res.status_code, "response": res.text[:300]}
+                    )
+                body = res.json()
+                llm_text = body["candidates"][0]["content"]["parts"][0]["text"].strip()
+            except requests.exceptions.Timeout:
+                raise AIRequiredFailureException(
+                    error_code="model_timeout",
+                    error_message="Gemini request timed out.",
+                    diagnostics={"timeout_seconds": self.llm.timeout_seconds}
+                )
+            except AIRequiredFailureException:
+                raise
+            except Exception as e:
+                raise AIRequiredFailureException(
+                    error_code="invalid_model_json",
+                    error_message=f"Gemini connection error: {str(e)}",
+                    diagnostics={"exception": str(e)}
+                )
 
         llm_data = self.llm.parse_json_payload(llm_text)
         if not llm_data or not isinstance(llm_data, dict):
@@ -105,7 +196,7 @@ class UnderstandingAgent(BaseAgent):
                 error_code="invalid_model_json",
                 error_message="Model returned response that could not be parsed as valid JSON.",
                 diagnostics={
-                    "provider": self.llm._active_provider(),
+                    "provider": provider,
                     "raw_preview": (llm_text[:300] if llm_text else "")
                 }
             )
@@ -151,8 +242,8 @@ class UnderstandingAgent(BaseAgent):
         validation_report = self._evaluate_15_point_checklist(doc_files)
 
         provenance = {
-            "provider": self.llm._active_provider(),
-            "model": getattr(self.llm, "model_name", "gemini-1.5-flash"),
+            "provider": provider,
+            "model": self.llm.gpt_model if provider == "gpt" else self.llm.gemini_model,
             "prompt_version": "understanding-v2-ai-required",
             "generated_at": datetime.now(timezone.utc).isoformat(),
             "fallback_used": False,
