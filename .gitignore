@@ -19,6 +19,7 @@ __pycache__/
 workspace/
 uploads/
 *.log
+sample_test_target_app/test_target.db
 
 # IDE settings
 .vscode/

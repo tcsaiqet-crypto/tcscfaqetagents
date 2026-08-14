@@ -109,7 +109,6 @@ class DocumentUploadPage:
         self.file_input.set_input_files(file_path)
 '''
         (self.output_dir / "pages" / "cfa_pages.py").write_text(pages_code, encoding="utf-8")
-        (self.workspace_dir / "cfa_pages.py").write_text(pages_code, encoding="utf-8")
 
         # 3. Generate tests/test_cfa_journey.py
         valid_case_id = generated_cases[0]["case_id"]
@@ -152,19 +151,19 @@ def test_negative_invalid_password(page: Page, app_url: str, test_data: dict) ->
     expect(page.locator("{selectors['error_banner']}" )).to_be_visible()
 '''
         (self.output_dir / "tests" / "test_cfa_journey.py").write_text(test_code, encoding="utf-8")
-        (self.workspace_dir / "test_cfa_journey.py").write_text(test_code, encoding="utf-8")
 
         # 4. Generate fixtures/conftest.py
         conftest_code = '''"""Pytest Fixtures for CFA Playwright Test Package."""
 
 import json
+import os
 import pytest
 from pathlib import Path
 
 
 @pytest.fixture
 def app_url() -> str:
-    return "http://localhost:8501"
+    return os.environ.get("QET_TEST_BASE_URL", "http://localhost:8501")
 
 
 @pytest.fixture
@@ -178,6 +177,9 @@ def test_data() -> dict:
 
         # 5. Generate test-data/synthetic_data.json
         (self.output_dir / "test-data" / "synthetic_data.json").write_text(json.dumps(synthetic_payload, indent=2), encoding="utf-8")
+
+        # Mirror a self-contained, importable copy under workspace/ so ExecutionEngine can run it directly.
+        self._mirror_executable_package(pages_code, test_code, conftest_code, synthetic_payload)
 
         # 6. Generate requirements.txt and README.md
         req_text = "playwright>=1.40.0\npytest-playwright>=0.4.0\npytest>=8.0.0\n"
@@ -232,6 +234,29 @@ pytest tests/test_cfa_journey.py --headed
                 fallback_used=state is None or state.understanding is None,
             )
         ]
+
+    def _mirror_executable_package(
+        self,
+        pages_code: str,
+        test_code: str,
+        conftest_code: str,
+        synthetic_payload: Dict[str, Any],
+    ) -> None:
+        """Mirror a self-contained, importable copy under workspace/ so ExecutionEngine can run it directly."""
+        pages_dir = self.workspace_dir / "pages"
+        pages_dir.mkdir(parents=True, exist_ok=True)
+        (pages_dir / "__init__.py").write_text("", encoding="utf-8")
+        (pages_dir / "cfa_pages.py").write_text(pages_code, encoding="utf-8")
+
+        (self.workspace_dir / "test_cfa_journey.py").write_text(test_code, encoding="utf-8")
+
+        data_dir = self.workspace_dir / "test-data"
+        data_dir.mkdir(parents=True, exist_ok=True)
+        (data_dir / "synthetic_data.json").write_text(json.dumps(synthetic_payload, indent=2), encoding="utf-8")
+
+        # conftest.py sits directly beside test_cfa_journey.py here, one directory
+        # closer to test-data/ than the packaged fixtures/conftest.py layout.
+        (self.workspace_dir / "conftest.py").write_text(conftest_code.replace("parent.parent", "parent"), encoding="utf-8")
 
     def _derive_selectors(self, state: Optional[AppState]) -> Dict[str, str]:
         defaults = {

@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sample Task Manager</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <a href="#main-content" class="skip-link">Skip to main content</a>
+  <main id="main-content" class="container">
+    <h1>Task Manager</h1>
+
+    {% if error %}
+    <div data-testid="error-banner" role="alert" class="banner banner-error">{{ error }}</div>
+    {% endif %}
+
+    <form method="post" action="{{ url_for('create_task') }}" novalidate>
+      <!-- Intentional violation (1.3.1): title input has no <label>/aria-label -->
+      <input type="text" name="title" placeholder="Task title" data-testid="task-title-input" maxlength="50">
+
+      <label for="priority">Priority</label>
+      <select id="priority" name="priority" data-testid="task-priority-select">
+        {% for p in priorities %}
+        <option value="{{ p }}">{{ p }}</option>
+        {% endfor %}
+      </select>
+
+      <label for="due_date">Due date</label>
+      <input id="due_date" type="date" name="due_date" data-testid="task-due-date-input">
+
+      <button type="submit" data-testid="add-task-button">Add Task</button>
+    </form>
+
+    <h2>Tasks</h2>
+    <table data-testid="tasks-table">
+      <thead><tr><th>Title</th><th>Priority</th><th>Due</th><th>Status</th><th>Actions</th></tr></thead>
+      <tbody>
+        {% for task in tasks %}
+        <!-- Intentional violation (4.1.1): every row reuses the same id -->
+        <tr id="task-row">
+          <td>{{ task.title }}</td>
+          <td>{{ task.priority }}</td>
+          <td>{{ task.due_date }}</td>
+          <td>{{ "Completed" if task.completed else "Open" }}</td>
+          <td>
+            <form method="post" action="{{ url_for('complete_task', task_id=task.id) }}" style="display:inline;">
+              <button type="submit">Toggle</button>
+            </form>
+            <!-- Intentional violation (2.1.1): clickable div, no role/tabindex/key handler -->
+            <form method="post" action="{{ url_for('delete_task', task_id=task.id) }}" style="display:inline;">
+              <div onclick="this.closest('form').submit()" class="fake-link">Delete</div>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5">No tasks yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <!-- Intentional violation (1.1.1): decorative-looking icon with no alt attribute -->
+    <img src="{{ url_for('static', filename='icon.png') }}">
+
+    <!-- Intentional violation (2.4.7): focus outline removed with no replacement -->
+    <p><a href="/api/tasks" style="outline:none;">here</a> is the JSON API for tasks.</p>
+
+    <!-- Intentional violation (1.4.3): low-contrast helper text -->
+    <p style="color:#cccccc;background:#ffffff;">Tasks older than their due date are not automatically archived.</p>
+
+    <p><a href="{{ url_for('index') }}">Refresh task list</a></p>
+  </main>
+</body>
+</html>

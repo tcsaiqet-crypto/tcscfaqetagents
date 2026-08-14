@@ -237,6 +237,44 @@ class PlaywrightScript(BaseModel):
     fallback_used: bool = False
 
 
+class AccessibilityFinding(BaseModel):
+    rule_id: str
+    wcag_sc: str  # e.g. "1.1.1"
+    wcag_name: str
+    impact: str  # critical, serious, moderate, minor
+    description: str
+    file_path: str
+    line_number: int = 0
+    snippet: str = ""
+
+
+class AccessibilityRuleResult(BaseModel):
+    rule_id: str
+    wcag_sc: str
+    wcag_name: str
+    wcag_level: str  # "A" or "AA"
+    impact: str
+    passed: bool
+    violation_count: int = 0
+
+
+class AccessibilityReport(BaseModel):
+    files_scanned: int = 0
+    rules_total: int = 13
+    rules_passed: int = 0
+    rating: str = "Below A"  # "A" if rules_passed >= 10, else "Below A"
+    total_violations: int = 0
+    critical_count: int = 0
+    serious_count: int = 0
+    moderate_count: int = 0
+    minor_count: int = 0
+    rule_results: List[AccessibilityRuleResult] = Field(default_factory=list)
+    findings: List[AccessibilityFinding] = Field(default_factory=list)
+    engine: str = "static-rule-engine"
+    generated_at: str = ""
+    provenance: Dict[str, Any] = Field(default_factory=dict)
+
+
 class ExecutionRequest(BaseModel):
     execution_id: str
     mode: ExecutionMode
@@ -298,6 +336,7 @@ class AppState(BaseModel):
     synthetic_dataset: Optional[SyntheticDataset] = None
     playwright_scripts: List[PlaywrightScript] = Field(default_factory=list)
     last_execution_result: Optional[ExecutionResult] = None
+    accessibility_report: Optional[AccessibilityReport] = None
     latest_report: Optional[QualityReport] = None
     errors: List[str] = Field(default_factory=list)
     stage_timestamps: Dict[str, str] = Field(default_factory=dict)

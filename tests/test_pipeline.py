@@ -43,10 +43,12 @@ def test_end_to_end_mvp_pipeline(tmp_path: Path) -> None:
     
     # 4. Verify Playwright Script Generation
     assert len(final_state.playwright_scripts) > 0
-    pom_file = Path("workspace/generated_playwright_tests/cfa_pages.py")
+    pom_file = Path("workspace/generated_playwright_tests/pages/cfa_pages.py")
     script_file = Path("workspace/generated_playwright_tests/test_cfa_journey.py")
+    conftest_file = Path("workspace/generated_playwright_tests/conftest.py")
     assert pom_file.exists(), "Page Object Model file must be written to disk"
     assert script_file.exists(), "Test script file must be written to disk"
+    assert conftest_file.exists(), "Mirrored conftest.py must be written to disk"
     
     # 5. Verify HTML & PDF Report Generation
     assert final_state.latest_report is not None

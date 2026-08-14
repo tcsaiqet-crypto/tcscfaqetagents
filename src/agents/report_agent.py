@@ -51,15 +51,16 @@ class ReportAgent(BaseAgent):
 
         # 2. Collect Findings List
         findings = self._collect_findings(state)
+        a11y = self._accessibility_summary(state)
 
         html_path = self.artifact_dir / "quality_report.html"
         pdf_path = self.artifact_dir / "quality_report.pdf"
 
         # 3. Generate Standalone HTML Report with Inline CSS
-        self._generate_html_report(state, html_path, total, passed, failed, pass_rate, exec_status_str, findings)
+        self._generate_html_report(state, html_path, total, passed, failed, pass_rate, exec_status_str, findings, a11y)
 
         # 4. Generate PDF Report using ReportLab
-        self._generate_pdf_report(state, pdf_path, total, passed, failed, pass_rate, exec_status_str, findings)
+        self._generate_pdf_report(state, pdf_path, total, passed, failed, pass_rate, exec_status_str, findings, a11y)
 
         # Mirror files to reports_dir
         (self.reports_dir / "quality_report.html").write_bytes(html_path.read_bytes())
@@ -110,6 +111,21 @@ class ReportAgent(BaseAgent):
             })
         return findings
 
+    def _accessibility_summary(self, state: AppState) -> Dict[str, Any]:
+        """Return achieved rating + Medium+ severity (moderate/serious/critical) violations."""
+        report = state.accessibility_report
+        if not report:
+            return {"available": False}
+        medium_plus = [f for f in report.findings if f.impact in ("moderate", "serious", "critical")]
+        return {
+            "available": True,
+            "rating": report.rating,
+            "rules_passed": report.rules_passed,
+            "rules_total": report.rules_total,
+            "files_scanned": report.files_scanned,
+            "medium_plus": medium_plus,
+        }
+
     def _generate_html_report(
         self,
         state: AppState,
@@ -119,7 +135,8 @@ class ReportAgent(BaseAgent):
         failed: int,
         pass_rate: float,
         exec_status_str: str,
-        findings: List[Dict[str, Any]]
+        findings: List[Dict[str, Any]],
+        a11y: Dict[str, Any]
     ) -> None:
         """Write standalone HTML Quality Dashboard with Light Enterprise Inline CSS."""
         findings_rows = ""
@@ -137,6 +154,30 @@ class ReportAgent(BaseAgent):
                 <td>{f['recommendation']}</td>
             </tr>
             """
+
+        a11y_section = ""
+        if a11y["available"]:
+            sev_color_map = {"critical": "#C53030", "serious": "#C53030", "moderate": "#B7791F", "minor": "#64748B"}
+            a11y_rows = "".join(
+                f"""<tr>
+                    <td>{f.wcag_sc} {f.wcag_name}</td>
+                    <td><span style="color: {sev_color_map.get(f.impact, '#64748B')}; font-weight: bold;">{f.impact.title()}</span></td>
+                    <td><code>{f.file_path}:{f.line_number}</code></td>
+                    <td>{f.description}</td>
+                </tr>"""
+                for f in a11y["medium_plus"]
+            ) or "<tr><td colspan=\"4\">No Medium+ severity violations found.</td></tr>"
+            a11y_section = f"""
+    <div class="section">
+        <h2>♿ Accessibility (Static WCAG 2.1 A/AA Scan)</h2>
+        <p>Achieved rating: <b>{a11y['rating']}</b> ({a11y['rules_passed']}/{a11y['rules_total']} static rules passed across {a11y['files_scanned']} files scanned).</p>
+        <p class="hint">POC scope: 13 statically verifiable WCAG A/AA success criteria via source-code pattern matching. No browser rendering, no external API calls.</p>
+        <table>
+            <thead><tr><th>WCAG Criterion</th><th>Severity</th><th>Location</th><th>Description</th></tr></thead>
+            <tbody>{a11y_rows}</tbody>
+        </table>
+    </div>
+"""
 
         html_content = f"""<!DOCTYPE html>
 <html lang="en">
@@ -161,6 +202,7 @@ class ReportAgent(BaseAgent):
         .badge-passed {{ background: #DCFCE7; color: #16803C; }}
         .badge-failed {{ background: #FEE2E2; color: #C53030; }}
         .badge-notrun {{ background: #F1F5F9; color: #64748B; }}
+        .hint {{ font-size: 12px; color: #64748B; }}
     </style>
 </head>
 <body>
@@ -208,7 +250,7 @@ class ReportAgent(BaseAgent):
             </tbody>
         </table>
     </div>
-
+{a11y_section}
     <div class="section">
         <h2>📌 Executive Summary & Recommendations</h2>
         <p>• <b>Requirement Quality Score:</b> 90.0% coverage across 15 specification checklist items.</p>
@@ -229,7 +271,8 @@ class ReportAgent(BaseAgent):
         failed: int,
         pass_rate: float,
         exec_status_str: str,
-        findings: List[Dict[str, Any]]
+        findings: List[Dict[str, Any]],
+        a11y: Dict[str, Any]
     ) -> None:
         """Write ReportLab PDF Quality Export matching exact factual story."""
         doc = SimpleDocTemplate(str(path), pagesize=letter, leftMargin=36, rightMargin=36, topMargin=36, bottomMargin=36)
@@ -314,6 +357,34 @@ class ReportAgent(BaseAgent):
         ]))
         elements.append(t_findings)
         elements.append(Spacer(1, 15))
+
+        # 3b. Accessibility Section
+        if a11y["available"]:
+            elements.append(Paragraph("♿ Accessibility (Static WCAG 2.1 A/AA Scan)", heading_style))
+            elements.append(Paragraph(
+                f"Achieved rating: <b>{a11y['rating']}</b> "
+                f"({a11y['rules_passed']}/{a11y['rules_total']} static rules passed across {a11y['files_scanned']} files scanned).",
+                body_style,
+            ))
+            a11y_table_data = [["WCAG Criterion", "Severity", "Location", "Description"]]
+            for f in a11y["medium_plus"]:
+                a11y_table_data.append([
+                    f"{f.wcag_sc} {f.wcag_name}", f.impact.title(), f"{f.file_path}:{f.line_number}",
+                    Paragraph(f.description, body_style),
+                ])
+            if len(a11y_table_data) == 1:
+                a11y_table_data.append(["--", "--", "--", "No Medium+ severity violations found."])
+            t_a11y = Table(a11y_table_data, colWidths=[90, 60, 100, 190])
+            t_a11y.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#F8FAFC')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#64748B')),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, -1), 8),
+                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#E2E8F0'))
+            ]))
+            elements.append(t_a11y)
+            elements.append(Spacer(1, 15))
 
         # 4. Summary & Recommendations
         elements.append(Paragraph("📌 Executive Summary & Governance Notes", heading_style))

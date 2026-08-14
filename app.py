@@ -14,6 +14,7 @@ from src.services.execution_engine import ExecutionEngine, ExecutionNotAllowedEr
 from src.services.llm_service import LLMService
 from src.services.run_state_service import save_run_state, load_run_state
 from src.workflows.pipeline import SequentialQETPipeline
+from src.agents.accessibility_agent import AccessibilityAgent
 from src.ui.theme import apply_theme, PAGE_BG, CARD_BG, PRIMARY_NAVY, PRIMARY_BLUE
 try:
     from src.ui.components import (
@@ -880,25 +881,63 @@ elif selected_nav == "Quality Report":
         st.markdown("---")
 
         # Metric Cards
+        requirements_evaluated = (
+            state.understanding.validation_report.evaluated_items_count
+            if state.understanding and state.understanding.validation_report else 0
+        )
         q1, q2, q3, q4 = st.columns(4)
-        with q1: st.metric("Requirements Analyzed", "15")
+        with q1: st.metric("Requirements Analyzed", f"{requirements_evaluated}")
         with q2: st.metric("Total Test Cases", f"{rep.total_scenarios}")
         with q3: st.metric("Pass Rate %", f"{rep.pass_rate_percentage}%")
         with q4: st.metric("Execution Status", "NOT_RUN" if rep.total_scenarios > 0 and rep.passed == 0 and rep.failed == 0 else "COMPLETED")
 
         st.markdown("---")
         st.subheader("⚠️ Quality & Risk Findings Inventory")
-        st.table([
-            {"Finding ID": "FND-001", "Category": "Parameter Contradiction", "Module": "Document Upload", "Severity": "High", "Evidence Source": "src/components/DocumentUpload.tsx", "Confidence": "High", "Status": "Requires Review", "Recommendation": "Align file upload count limit between specification (5) and component code (10)."},
-            {"Finding ID": "FND-002", "Category": "RequirementWithoutCode", "Module": "Document Upload", "Severity": "Medium", "Evidence Source": "CFA_Requirements_Specification.md", "Confidence": "High", "Status": "Requires Review", "Recommendation": "Specify network upload timeout error message and retry UI state."},
-            {"Finding ID": "FND-003", "Category": "CodeWithoutRequirement", "Module": "Authentication", "Severity": "Low", "Evidence Source": "src/components/Login.tsx", "Confidence": "High", "Status": "Requires Review", "Recommendation": "Document session expiration auto-logout modal behavior in requirement specifications."}
-        ])
+        if state.understanding and state.understanding.gaps:
+            st.table([
+                {
+                    "Gap ID": g.gap_id, "Title": g.title, "Category": g.category,
+                    "Severity": g.severity, "Evidence Source": g.evidence_source, "Confidence": g.confidence,
+                }
+                for g in state.understanding.gaps
+            ])
+        else:
+            st.info("No requirement gaps recorded for this run yet.")
+
+        st.markdown("---")
+        st.subheader("♿ Accessibility (Static WCAG 2.1 A/AA Scan)")
+        if st.button("Run Accessibility Scan", key="run_accessibility_scan", disabled=state.intake_manifest is None):
+            with st.spinner("Scanning source for WCAG A/AA violations..."):
+                st.session_state.app_state = AccessibilityAgent(run_id=st.session_state.run_id).run(state)
+            _persist_state()
+            st.rerun()
+        if state.intake_manifest is None:
+            st.caption("Upload a codebase first.")
+
+        if state.accessibility_report:
+            a11y = state.accessibility_report
+            m1, m2, m3 = st.columns(3)
+            with m1: st.metric("Rating", a11y.rating)
+            with m2: st.metric("Rules Passed", f"{a11y.rules_passed}/{a11y.rules_total}")
+            with m3: st.metric("Files Scanned", a11y.files_scanned)
+            medium_plus = [f for f in a11y.findings if f.impact in ("moderate", "serious", "critical")]
+            if medium_plus:
+                st.table([
+                    {
+                        "WCAG": f"{f.wcag_sc} {f.wcag_name}", "Severity": f.impact.title(),
+                        "Location": f"{f.file_path}:{f.line_number}", "Description": f.description,
+                    }
+                    for f in medium_plus
+                ])
+            else:
+                st.success("No Medium+ severity accessibility violations found.")
+        else:
+            st.info("Accessibility scan not yet run for this session.")
 
         st.markdown("---")
         st.subheader("🖥️ Standalone HTML Dashboard Preview")
         if rep.html_report_path and Path(rep.html_report_path).exists():
-            with open(rep.html_report_path, "r", encoding="utf-8") as f:
-                st.components.v1.html(f.read(), height=500, scrolling=True)
+            st.iframe(Path(rep.html_report_path), height=500)
 
 elif selected_nav == "Settings":
     st.title("Settings & Security Policies")

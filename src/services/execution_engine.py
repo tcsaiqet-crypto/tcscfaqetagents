@@ -139,9 +139,10 @@ class ExecutionEngine:
 
         if readiness["configured"]:
             try:
-                # Run Pytest Playwright subprocess
-                cmd = [sys.executable, "-m", "pytest", str(test_file), "-v", "--tb=short"]
-                res = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+                # Run from within the generated package directory so relative
+                # imports (pages.cfa_pages) and the mirrored conftest.py resolve.
+                cmd = [sys.executable, "-m", "pytest", test_file.name, "-v", "--tb=short"]
+                res = subprocess.run(cmd, capture_output=True, text=True, timeout=30, cwd=str(test_file.parent))
                 
                 logs.append(f"Subprocess exit code: {res.returncode}")
                 logs.append(res.stdout[:1000] if res.stdout else "No stdout output")
@@ -229,6 +230,14 @@ class ExecutionEngine:
         if not self.allowed_host:
             reasons.append("QET_ALLOWED_TEST_HOST is empty.")
 
+        if self.base_url:
+            reachable, detail = self._check_reachable(self.base_url)
+            if not reachable:
+                reasons.append(
+                    f"Target application at {self.base_url} is not reachable ({detail}). "
+                    "Start the target app before running Playwright execution."
+                )
+
         return {
             "configured": len(reasons) == 0,
             "reasons": reasons,
@@ -236,3 +245,17 @@ class ExecutionEngine:
             "base_url": self.base_url,
             "allowed_host": self.allowed_host,
         }
+
+    @staticmethod
+    def _check_reachable(url: str) -> tuple:
+        """Best-effort TCP probe so unreachable targets fail fast with a clear reason."""
+        import socket
+        parsed = urlparse(url)
+        host = parsed.hostname or "localhost"
+        port = parsed.port or (443 if parsed.scheme == "https" else 80)
+        try:
+            with socket.create_connection((host, port), timeout=3):
+                return True, "ok"
+        except OSError as exc:
+            return False, str(exc)
+

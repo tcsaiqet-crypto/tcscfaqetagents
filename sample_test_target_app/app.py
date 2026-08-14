@@ -174,4 +174,7 @@ def not_found(_exc):
 
 if __name__ == "__main__":
     # Bind to localhost only -- this app hosts intentional vulnerabilities under /vuln/*.
-    app.run(host="127.0.0.1", port=5000, debug=True)
+    # FLASK_DEBUG=0 disables the reloader's child process, so orchestration scripts can
+    # start/stop this single process cleanly.
+    debug_mode = os.environ.get("FLASK_DEBUG", "1") != "0"
+    app.run(host="127.0.0.1", port=5000, debug=debug_mode)
