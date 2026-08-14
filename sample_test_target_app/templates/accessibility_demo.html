@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Accessibility Demo -- Good vs. Bad Patterns</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <a href="#main-content" class="skip-link">Skip to main content</a>
+  <main id="main-content" class="container">
+    <h1>Accessibility Demo</h1>
+    <p>This page intentionally combines inaccessible and accessible patterns side by side
+       so the QET accessibility-scanning agent has real examples of both to detect.</p>
+
+    <section id="bad-examples">
+      <h2>Bad Examples (intentional accessibility issues)</h2>
+      <img src="{{ url_for('static', filename='chart.png') }}">
+      <div onclick="alert('clicked')">Click me (a div, not a real button -- not keyboard accessible)</div>
+      <p style="color:#cccccc;background:#ffffff;">Low-contrast helper text that is hard to read.</p>
+      <input type="text" placeholder="Email (no associated label)">
+      <a href="#" style="outline:none;">Link with focus outline removed</a>
+    </section>
+
+    <section id="good-examples">
+      <h2>Good Examples (accessible patterns)</h2>
+      <img src="{{ url_for('static', filename='chart.png') }}" alt="Bar chart showing quarterly revenue growth">
+      <button type="button" onclick="alert('clicked')">Click me (real button, keyboard accessible)</button>
+      <p style="color:#1a1a1a;background:#ffffff;">Helper text with sufficient color contrast.</p>
+      <label for="good-email">Email</label>
+      <input id="good-email" type="text" placeholder="name@example.com">
+      <a href="#main-content">Skip to main content (properly focusable link)</a>
+    </section>
+
+    <p><a href="{{ url_for('login') }}">Back to app</a></p>
+  </main>
+</body>
+</html>

@@ -1,0 +1,203 @@
+========================================================================
+QET AGENT ACCELERATOR — UI REQUIREMENTS DOCUMENT
+(CFA Digital Journey Test Agent Suite — Demo/Showcase UI)
+========================================================================
+
+1. PURPOSE
+------------------------------------------------------------------------
+Define a clear, engaging, and demo-ready UI for the QET Agent Accelerator
+so that stakeholders can watch the multi-agent test suite run end-to-end
+and immediately understand:
+  - What the suite does (automates test design + execution for a web app)
+  - Which agent is currently working, and why
+  - What each agent produces (artifacts, evidence, confidence)
+  - Overall run health and quality outcome at a glance
+
+The UI is built with Streamlit (existing stack: streamlit, src/ui/theme.py,
+src/ui/components.py). This document describes requirements only — no
+implementation is assumed beyond what already exists.
+
+2. WHAT THE SUITE DOES (for UI copy/messaging)
+------------------------------------------------------------------------
+The QET Agent Accelerator is a 5-agent sequential pipeline that turns raw
+application inputs (source code, docs, or a ZIP upload) into a full
+automated test package and quality report, without a human writing test
+code by hand.
+
+Pipeline stages (in order), each backed by one specialist agent:
+  1. Sources          — Intake & Inventory of uploaded docs/code/ZIP
+  2. Understanding     — UnderstandingAgent analyzes the app, extracts
+                          requirements, UI inventory, and coverage gaps
+  3. Test Cases        — TestCaseAgent generates positive, negative,
+                          boundary, validation, and error-handling cases
+  4. Test Data         — TestDataAgent creates synthetic, fictional
+                          datasets mapped to each test case
+  5. Playwright        — PlaywrightAgent generates Page Object Models,
+                          pytest test scripts, fixtures, and a README
+  6. Execution         — Controlled Playwright execution of the generated
+                          tests (no arbitrary URL execution)
+  7. Report            — ReportAgent produces an HTML quality dashboard
+                          and a PDF export with findings, severity,
+                          evidence source, and confidence
+
+Explicitly OUT of scope for v1 (UI must not imply these exist):
+  API testing, performance/load testing, accessibility scanning,
+  security scanning, arbitrary URL execution.
+
+3. UI GOALS
+------------------------------------------------------------------------
+  - CLARITY: A first-time viewer understands what's happening within
+    5 seconds of looking at the screen.
+  - LIVE FEEL: While agents run, the UI must visibly react — progress,
+    status changes, streaming logs/messages — not a static spinner.
+  - TRUST: Every generated result shows its evidence source and a
+    confidence indicator, so outputs don't look like a black box.
+  - DEMO-READY: Looks professional/enterprise (existing Light Enterprise
+    theme: navy/blue palette) and works well when presented on a shared
+    screen or projector.
+
+4. CORE UI STRUCTURE
+------------------------------------------------------------------------
+4.1 Header (persistent, top)
+  - App name/logo: "⚡ QET Agent Accelerator"
+  - Active project label: "CFA Digital Journey"
+  - Current Run ID
+  - Global run status badge: Idle / Running / Completed / Failed
+
+4.2 Workflow Stepper (persistent, below header)
+  - Horizontal stepper with 7 stages: Sources → Understanding →
+    Test Cases → Test Data → Playwright → Execution → Report
+  - Each stage shows one state: Not Started / Running / Completed /
+    Failed / Not Configured / Disabled
+  - The active stage is visually highlighted (border/background),
+    completed stages show a green check, failed stages show red.
+  - Clicking a completed stage jumps to its detail/results view.
+
+4.3 Left Navigation
+  - Grouped links mirroring the pipeline stages plus utility pages
+    (e.g. Run History, Settings/API Keys).
+  - Shows current Run ID and "Workflow Completion: X/7" progress.
+
+4.4 Main Content Area — per-stage views
+  For EACH stage, the detail view must show:
+    a. What this agent does (1–2 line description, plain language)
+    b. Live status while running:
+         - Animated "agent thinking" indicator (not a generic spinner —
+           label it, e.g. "UnderstandingAgent is analyzing app_x.py…")
+         - Streaming step log (bullet list that grows as sub-steps
+           complete, e.g. "Parsed 6 source files", "Identified 3 forms")
+         - Elapsed time counter
+    c. Results after completion:
+         - Summary card(s) with key counts (e.g. "42 test cases
+           generated: 20 positive / 15 negative / 7 boundary")
+         - Expandable detail table/JSON view of the artifact
+         - Evidence badge per item (which source file/section it came
+           from) and confidence badge (High/Medium/Low or %)
+         - Download button(s) for the raw artifact (JSON/CSV/ZIP)
+    d. Failure state:
+         - Clear error message, which stage failed and why
+         - "Retry this stage" action, with note that downstream stages
+           will be reset
+
+4.5 Global "Run Pipeline" Controls
+  - Primary button: "Run Full Pipeline" (executes all 7 stages)
+  - Secondary controls: "Run from this stage", "Retry stage"
+  - Disabled/greyed controls must show a tooltip explaining why
+    (e.g. missing prerequisite upload)
+
+4.6 Live Execution View (Stage: Execution)
+  - Distinguish this from code-generation stages: this is the actual
+    controlled Playwright test run.
+  - Show per-test-case row: name, status icon (queued/running/pass/
+    fail), duration.
+  - Running test is visually distinct (pulsing/highlighted row).
+  - Running pass/fail counters update in real time as tests complete.
+  - Optional: link/preview to captured screenshot or trace on failure.
+
+4.7 Final Report View (Stage: Report)
+  - Quality Dashboard summary: total findings by severity
+    (Critical/High/Medium/Low), pass rate, coverage summary.
+  - Findings table: ID, Category, Module, Severity, Evidence Source,
+    Confidence, Status, Recommendation.
+  - Buttons: "Download HTML Report", "Download PDF Report".
+  - A visually distinct "quality score" or health indicator at the top.
+
+4.8 Run History / Sidebar utility
+  - List of previous runs with timestamp, status, and quick-open link.
+  - Ability to resume/view a completed run's artifacts without re-running.
+
+4.9 AI Status Footer (persistent)
+  - Shows active AI provider (Gemini/GPT), whether LLM mode is enabled,
+    and a fallback notice if running in deterministic-only mode.
+
+5. VISUAL / BRANDING REQUIREMENTS
+------------------------------------------------------------------------
+  - Theme: Light Enterprise — navy (#163B65) and blue (#2563EB) accents,
+    consistent with existing src/ui/theme.py tokens (PAGE_BG, CARD_BG,
+    PRIMARY_NAVY, PRIMARY_BLUE). Do not introduce a new palette.
+  - Status color convention (must be consistent everywhere):
+      Completed = green, Running = blue (animated), Failed = red,
+      Not Started/Disabled = grey/dashed.
+  - Cards use soft shadows, rounded corners, generous whitespace —
+    avoid dense/cluttered tables as the default view; use expanders.
+  - Icons/emojis used sparingly for scannability (⚡ for agents,
+    ✅/❌/⏳ for status), not decoratively.
+  - Typography: clear hierarchy — page title > stage title > card
+    label > body text. No more than 2 font weights per view.
+
+6. ENGAGEMENT / "SHOWCASE" REQUIREMENTS
+------------------------------------------------------------------------
+  - When idle, the landing view must pitch the suite: a short hero
+    section stating the problem ("manual test design is slow") and
+    the solution ("5 AI agents generate tests, data, and reports in
+    minutes"), plus a single clear call-to-action button to start.
+  - While running, avoid dead air: always show *something* changing
+    (progress %, log lines, elapsed timer) so an audience watching a
+    demo never sees a frozen screen for more than ~2 seconds.
+  - After completion, surface a short "what just happened" summary
+    banner (e.g. "Generated 42 test cases, 30 datasets, and 12
+    Playwright scripts in 3m 12s — 92% quality score").
+  - Provide a one-click "Reset / Start New Run" action to loop the demo.
+
+7. ACCESSIBILITY & USABILITY
+------------------------------------------------------------------------
+  - All status information conveyed by color must also use text/icon
+    (not color alone).
+  - Buttons and controls have accessible labels (no icon-only actions
+    without a tooltip/label).
+  - Layout must remain usable at 1280px width (typical shared-screen
+    resolution) without horizontal scrolling.
+
+8. NON-GOALS
+------------------------------------------------------------------------
+  - No requirement to support multiple concurrent users/projects in v1.
+  - No requirement to support agent stages listed as disabled in v1
+    scope (API testing, performance, accessibility, security scans,
+    arbitrary URL execution) — these should appear as "Disabled" /
+    "Coming soon" placeholders only if referenced, not as working demos.
+
+9. ACCEPTANCE CRITERIA (for review/demo sign-off)
+------------------------------------------------------------------------
+  [ ] A new viewer can explain what the suite does after 10 seconds
+      of viewing the idle/landing screen.
+  [ ] Running the full pipeline visibly updates the stepper and shows
+      live progress for each of the 7 stages without long static pauses.
+  [ ] Each completed stage shows counts, evidence, and confidence for
+      its output, plus a working download action.
+  [ ] The Execution stage clearly differentiates "code generation" from
+      "actual test run" and shows live pass/fail counts.
+  [ ] The Report stage shows a summary quality indicator plus a
+      detailed findings table and downloadable HTML/PDF.
+  [ ] Any failure shows which stage failed, why, and an obvious retry
+      path.
+  [ ] Visual style is consistent with the existing Light Enterprise
+      theme (no clashing colors/fonts introduced).
+
+========================================================================
+NOTE: The `documents/` folder in this workspace is currently empty. This
+requirements document was derived from the existing README.md, agent
+source files (agents/, src/agents/), the pipeline definition
+(src/workflows/pipeline.py), and the current Streamlit UI scaffolding
+(app.py, src/ui/theme.py, src/ui/components.py). Add any additional
+source docs to `documents/` and re-run this analysis to refine details.
+========================================================================

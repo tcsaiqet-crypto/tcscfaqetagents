@@ -1,0 +1,15 @@
+body { font-family: Arial, sans-serif; margin: 0; background: #f5f7fb; color: #163B65; }
+.container { max-width: 640px; margin: 40px auto; background: #fff; padding: 24px 32px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.skip-link { position: absolute; left: -999px; top: 0; background: #163B65; color: #fff; padding: 8px; }
+.skip-link:focus { left: 8px; top: 8px; z-index: 10; }
+label { display: block; margin-top: 12px; font-weight: 600; font-size: 14px; }
+input[type=text], input[type=password], input[type=number], select { width: 100%; padding: 8px; margin-top: 4px; border: 1px solid #cbd5e1; border-radius: 4px; box-sizing: border-box; }
+.checkbox-label { display: flex; align-items: center; gap: 8px; font-weight: 400; }
+.checkbox-label input { width: auto; }
+button { margin-top: 16px; background: #2563EB; color: #fff; border: none; padding: 10px 18px; border-radius: 4px; cursor: pointer; }
+.banner { padding: 12px 16px; border-radius: 6px; margin: 12px 0; }
+.banner-error { background: #FEE2E2; color: #C53030; }
+.banner-success { background: #DCFCE7; color: #16803C; }
+.hint { font-size: 13px; color: #64748B; }
+table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+th, td { text-align: left; padding: 8px; border-bottom: 1px solid #E2E8F0; }

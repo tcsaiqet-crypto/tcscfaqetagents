@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sample Test Target -- Sign In</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <a href="#main-content" class="skip-link">Skip to main content</a>
+  <main id="main-content" class="container">
+    <h1>Digital Journey -- Sign In</h1>
+
+    {% if error %}
+    <div data-testid="error-banner" role="alert" class="banner banner-error">{{ error }}</div>
+    {% endif %}
+
+    <form method="post" action="{{ url_for('login') }}" novalidate>
+      <label for="username">Email address</label>
+      <input id="username" name="username" type="text" data-testid="username-input"
+             autocomplete="username" value="{{ username or '' }}">
+
+      <label for="password">Password</label>
+      <input id="password" name="password" type="password" data-testid="password-input"
+             autocomplete="current-password">
+
+      <button type="submit" data-testid="login-button">Sign In</button>
+    </form>
+
+    <p class="hint">Demo account: <code>jane.doe@example.com</code> / <code>MockPassword123!</code></p>
+    <p class="hint">Edge cases: <code>locked.user@example.com</code> (locked account), any wrong password (negative case).</p>
+    <p><a href="{{ url_for('accessibility_demo') }}">Accessibility demo page</a> &middot; <a href="/vuln/">Security test fixtures (local only)</a></p>
+  </main>
+</body>
+</html>

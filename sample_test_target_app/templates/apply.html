@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sample Test Target -- Applicant Information</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <a href="#main-content" class="skip-link">Skip to main content</a>
+  <main id="main-content" class="container">
+    <h1>Applicant Information &amp; Document Upload</h1>
+    <p><a href="{{ url_for('logout') }}">Sign out</a></p>
+
+    {% if error %}
+    <div data-testid="error-banner" role="alert" class="banner banner-error">{{ error }}</div>
+    {% endif %}
+    {% if success %}
+    <div data-testid="submission-success" role="status" class="banner banner-success">{{ success }}</div>
+    {% endif %}
+
+    <form method="post" action="{{ url_for('apply') }}" novalidate>
+      <input type="hidden" name="form_name" value="applicant_info">
+
+      <label for="full_name">Full legal name</label>
+      <input id="full_name" name="full_name" type="text" data-testid="fullname-input" maxlength="100">
+
+      <label for="ssn">Social Security Number (999-00-0000)</label>
+      <input id="ssn" name="ssn" type="text" data-testid="ssn-input" placeholder="999-00-0000">
+
+      <label for="employment_status">Employment status</label>
+      <select id="employment_status" name="employment_status" data-testid="employment-select">
+        {% for option in employment_options %}
+        <option value="{{ option }}">{{ option }}</option>
+        {% endfor %}
+      </select>
+
+      <label for="monthly_income">Monthly income (optional, boundary test field)</label>
+      <input id="monthly_income" name="monthly_income" type="number" step="0.01" value="3000">
+
+      <label class="checkbox-label">
+        <input type="checkbox" id="terms_accepted" name="terms_accepted" data-testid="terms-checkbox">
+        I accept the terms and conditions
+      </label>
+
+      <button type="submit" data-testid="submit-app-button">Submit Application</button>
+    </form>
+
+    <hr>
+
+    <h2>Document Upload</h2>
+    <form method="post" action="{{ url_for('apply') }}" enctype="multipart/form-data" novalidate>
+      <input type="hidden" name="form_name" value="document_upload">
+      <label for="document_file">Supporting document (PDF only)</label>
+      <input id="document_file" name="document_file" type="file" data-testid="document-upload-input">
+      <button type="submit">Upload</button>
+    </form>
+
+    <table data-testid="documents-table">
+      <thead><tr><th>Filename</th><th>Uploaded At</th></tr></thead>
+      <tbody>
+        {% for doc in documents %}
+        <tr><td>{{ doc.filename }}</td><td>{{ doc.uploaded_at }}</td></tr>
+        {% else %}
+        <tr><td colspan="2">No documents uploaded yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </main>
+</body>
+</html>

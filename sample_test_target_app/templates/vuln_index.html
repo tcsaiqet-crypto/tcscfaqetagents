@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Security Test Fixtures (Local Only)</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <main class="container">
+    <h1>Intentional Vulnerability Fixtures -- Local Testing Only</h1>
+    <p class="banner banner-error">
+      These endpoints are deliberately insecure. They exist only so the QET security-scanning
+      agent has real OWASP-style weaknesses to detect. Never expose this app beyond 127.0.0.1
+      and never reuse this code in a real application.
+    </p>
+    <ul>
+      <li><code>GET /vuln/search?q=</code> -- SQL Injection (OWASP A03)</li>
+      <li><code>POST /vuln/legacy-login</code> -- Auth bypass via SQL injection (OWASP A07)</li>
+      <li><code>GET /vuln/api/applications/&lt;id&gt;</code> -- Broken access control / IDOR (OWASP A01)</li>
+      <li><code>GET /vuln/comment?name=</code> -- Reflected XSS (OWASP A03)</li>
+      <li><code>POST /vuln/deserialize</code> -- Insecure deserialization (OWASP A08)</li>
+      <li><code>GET /vuln/download?file=</code> -- Path traversal</li>
+      <li><code>POST /vuln/transfer</code> -- CSRF (no token/origin check)</li>
+      <li><code>GET /vuln/crash</code> -- Verbose debug error leakage (OWASP A05)</li>
+      <li><code>GET /vuln/config</code> -- Sensitive configuration leakage (OWASP A05)</li>
+    </ul>
+    <p><a href="/login">Back to app</a></p>
+  </main>
+</body>
+</html>
