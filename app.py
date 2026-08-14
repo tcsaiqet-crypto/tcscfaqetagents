@@ -1,4 +1,4 @@
-"""Streamlit Professional Enterprise UI for QET Agent Accelerator — CFA Digital Journey."""
+﻿"""Streamlit Professional Enterprise UI for QET Automated Agents — CFA Digital Journey."""
 
 import os
 import json
@@ -48,7 +48,7 @@ except ImportError:
         total_count,
     ):
         st.sidebar.markdown("<div class='qet-side-shell'>", unsafe_allow_html=True)
-        st.sidebar.markdown("<div class='qet-side-app'>QET Agent Accelerator</div>", unsafe_allow_html=True)
+        st.sidebar.markdown("<div class='qet-side-app'>QET Automated Agents</div>", unsafe_allow_html=True)
         st.sidebar.markdown("<div class='qet-side-project'>CFA Journey</div>", unsafe_allow_html=True)
         st.sidebar.markdown(
             f"""
@@ -108,7 +108,7 @@ def _safe_active_provider() -> str:
     return "gpt" if provider == "gpt" else "gemini"
 
 st.set_page_config(
-    page_title="QET Agent Accelerator — CFA Digital Journey",
+    page_title="QET Automated Agents — CFA Digital Journey",
     page_icon="⚡",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -1024,3 +1024,4 @@ elif selected_nav == "Settings":
     st.write(f"GPT key: {gpt_status} (keys path: {keys_dir / 'openai keys.txt'})")
 
 render_ai_status_footer(runtime)
+
