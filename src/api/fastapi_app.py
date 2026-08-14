@@ -271,7 +271,7 @@ def serve_gorgeous_react_ui():
 <body>
   <div id="root"></div>
 
-  <script type="text/babel">
+  <script type="text/babel" data-presets="env,react">
     const { useState, useEffect, useRef } = React;
 
     const API_BASE = '/api/v1';
@@ -334,7 +334,7 @@ def serve_gorgeous_react_ui():
           const res = await fetch(API_BASE + '/runs/' + runId + '/status');
           const data = await res.json();
           setAppState(prev => {
-            const next = prev ? { ...prev } : {};
+            const next = prev ? Object.assign({}, prev) : {};
             next.status = data.state;
             next.progress = data.progress;
             next.error = data.error;
@@ -367,7 +367,9 @@ def serve_gorgeous_react_ui():
       // Perform Document files upload
       const uploadDocs = async (files) => {
         const formData = new FormData();
-        files.forEach(f => formData.append('files', f));
+        for (let i = 0; i < files.length; i++) {
+          formData.append('files', files[i]);
+        }
         setStatusMsg('Uploading requirement documents...');
         setErrorMsg('');
         try {
