@@ -21,6 +21,7 @@ from src.utils.logger import logger
 # even though they claim to support generateContent).
 _GEMINI_CANDIDATES_CACHE: Dict[str, list] = {}
 _GEMINI_WORKING_MODEL_CACHE: Dict[str, str] = {}
+_GEMINI_KEY_INDEX = 0
 
 # Preview/specialized model families excluded from text-generation candidate ranking.
 _GEMINI_EXCLUDE_KEYWORDS = (
@@ -136,6 +137,16 @@ class LLMService:
                 text = self._generate_with_gpt(prompt, api_key)
                 if text is not None:
                     return text
+            # Fall back to Gemini multi-key rotation pool if GPT fails or is unauthorized
+            gemini_keys = self._provider_keys("gemini")
+            if gemini_keys:
+                logger.info("GPT provider call failed; falling back to Gemini multi-key rotation pool.")
+                text, attempts = self.generate_with_gemini(prompt, gemini_keys)
+                if text is not None:
+                    return text
+                if attempts:
+                    self.last_error = attempts[-1]
+                return None
             return None
 
         api_keys = self._provider_keys("gemini")
