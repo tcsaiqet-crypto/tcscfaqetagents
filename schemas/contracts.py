@@ -267,4 +267,7 @@ class AppState(BaseModel):
     stage_provenance: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
     launcher_state: Dict[str, Any] = Field(default_factory=dict)
     execution_evidence_index: Dict[str, Any] = Field(default_factory=dict)
+    status: str = "idle"
+    progress: float = 0.0
+    last_error: Optional[Dict[str, Any]] = None
 
