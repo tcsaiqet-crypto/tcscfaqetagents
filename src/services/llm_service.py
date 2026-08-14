@@ -7,6 +7,7 @@ from the caller's own key via the ListModels endpoint and cached in-process.
 
 import json
 import os
+import re
 from typing import Any, Dict, Optional, Tuple
 
 import requests
@@ -66,6 +67,19 @@ class LLMService:
                 return ""
         return ""
 
+    @staticmethod
+    def _provider_keys(provider: str) -> list[str]:
+        provider_keys_getter = getattr(config, "get_provider_api_keys", None)
+        if callable(provider_keys_getter):
+            try:
+                keys = provider_keys_getter("gpt" if provider == "gpt" else "gemini")
+                if isinstance(keys, list):
+                    return [str(key) for key in keys if str(key).strip()]
+            except Exception:
+                pass
+        key = LLMService._provider_key(provider)
+        return [key] if key else []
+
     def is_enabled(self) -> bool:
         provider = self._active_provider()
         llm_enabled = True
@@ -75,7 +89,7 @@ class LLMService:
                 llm_enabled = bool(llm_enabled_getter())
             except Exception:
                 llm_enabled = True
-        return llm_enabled and bool(self._provider_key(provider))
+        return llm_enabled and bool(self._provider_keys(provider))
 
     def get_runtime_status(self) -> dict:
         try:
@@ -90,14 +104,24 @@ class LLMService:
                 enabled = bool(llm_enabled_getter())
             except Exception:
                 enabled = True
-        has_key = bool(self._provider_key(provider))
+        provider_keys = self._provider_keys(provider)
+        has_key = bool(provider_keys)
+        model = None
+        if has_key:
+            if provider == "gpt":
+                model = self.gpt_model
+            else:
+                for candidate_key in provider_keys:
+                    model = self.get_gemini_model(candidate_key)
+                    if model:
+                        break
         if not enabled:
             state = "Disabled"
         elif has_key:
             state = "Ready"
         else:
             state = "Misconfigured"
-        return {"provider": provider, "enabled": enabled, "has_key": has_key, "state": state}
+        return {"provider": provider, "enabled": enabled, "has_key": has_key, "state": state, "model": model}
 
     def generate_text(self, prompt: str) -> Optional[str]:
         """Return model text when available; otherwise return None (see `last_error`)."""
@@ -108,13 +132,17 @@ class LLMService:
 
         provider = self._active_provider()
         if provider == "gpt":
-            return self._generate_with_gpt(prompt)
+            for api_key in self._provider_keys("gpt"):
+                text = self._generate_with_gpt(prompt, api_key)
+                if text is not None:
+                    return text
+            return None
 
-        api_key = self._provider_key("gemini")
-        if not api_key:
+        api_keys = self._provider_keys("gemini")
+        if not api_keys:
             self.last_error = {"error_code": "provider_key_missing", "error_message": "Gemini API key not configured."}
             return None
-        text, attempts = self.generate_with_gemini(prompt, api_key)
+        text, attempts = self.generate_with_gemini(prompt, api_keys)
         if text is None and attempts:
             self.last_error = attempts[-1]
         return text
@@ -222,30 +250,34 @@ class LLMService:
             self.last_error = {"error_code": "invalid_model_json", "error_message": f"Gemini connection error: {exc}", "diagnostics": {"model": model, "exception": str(exc)}}
             return None
 
-    def generate_with_gemini(self, prompt: str, api_key: str) -> Tuple[Optional[str], list]:
+    def generate_with_gemini(self, prompt: str, api_keys: str | list[str]) -> Tuple[Optional[str], list]:
         """Try candidate Gemini models in priority order until one actually succeeds.
 
         Returns (text, attempts). `text` is None only if every candidate failed;
         `attempts` always lists every model tried with its failure diagnostics.
         """
-        candidates = self.list_gemini_candidates(api_key)
-        if not candidates:
-            return None, [{"error_code": "model_discovery_failed", **(self.last_error or {})}]
-
-        working = _GEMINI_WORKING_MODEL_CACHE.get(api_key)
-        order = ([working] if working else []) + [c for c in candidates if c != working]
-
+        candidate_keys = [api_keys] if isinstance(api_keys, str) else list(api_keys)
+        candidate_keys = [str(key).strip() for key in candidate_keys if str(key).strip()]
         attempts = []
-        for model in order:
-            text = self._call_gemini_model(model, api_key, prompt)
-            if text:
-                _GEMINI_WORKING_MODEL_CACHE[api_key] = model
-                return text, attempts
-            attempts.append({"model": model, **(self.last_error or {})})
+
+        for key_index, api_key in enumerate(candidate_keys):
+            candidates = self.list_gemini_candidates(api_key)
+            if not candidates:
+                attempts.append({"key_index": key_index, "provider_key": True, "error_code": "model_discovery_failed", **(self.last_error or {})})
+                continue
+
+            working = _GEMINI_WORKING_MODEL_CACHE.get(api_key)
+            order = ([working] if working else []) + [c for c in candidates if c != working]
+
+            for model in order:
+                text = self._call_gemini_model(model, api_key, prompt)
+                if text:
+                    _GEMINI_WORKING_MODEL_CACHE[api_key] = model
+                    return text, attempts
+                attempts.append({"key_index": key_index, "model": model, **(self.last_error or {})})
         return None, attempts
 
-    def _generate_with_gpt(self, prompt: str) -> Optional[str]:
-        api_key = self._provider_key("gpt")
+    def _generate_with_gpt(self, prompt: str, api_key: str) -> Optional[str]:
         if not api_key:
             return None
 
@@ -299,20 +331,116 @@ class LLMService:
 
     @staticmethod
     def parse_json_payload(text: Optional[str]) -> Optional[dict]:
-        """Parse JSON from plain or fenced model output."""
+        """Backward compatible parser returning only parsed dict or None."""
+        parsed, _ = LLMService.parse_json_payload_with_diagnostics(text)
+        return parsed
+
+    @staticmethod
+    def parse_json_payload_with_diagnostics(text: Optional[str]) -> Tuple[Optional[dict], Optional[Dict[str, Any]]]:
+        """Parse JSON with fence handling, light repair, and diagnostics.
+
+        Returns a tuple: (parsed_dict_or_none, diagnostics_or_none)
+        """
         if not text:
-            return None
+            return None, {
+                "parser_stage": "input",
+                "issue": "Empty model response",
+                "recovery_attempted": False,
+            }
 
         cleaned = text.strip()
+        recovery_attempted = False
+
         if cleaned.startswith("```"):
-            cleaned = cleaned.strip("`")
-            if cleaned.startswith("json"):
-                cleaned = cleaned[4:].strip()
+            # Accept clean fenced content like ```json ... ``` while rejecting malformed blocks.
+            full_fence_match = re.match(r"^```(?:json|JSON)?\s*([\s\S]*?)\s*```$", cleaned)
+            if full_fence_match:
+                cleaned = full_fence_match.group(1).strip()
+            else:
+                partial_match = re.search(r"```(?:json|JSON)?\s*([\s\S]*?)\s*```", cleaned)
+                if partial_match:
+                    cleaned = partial_match.group(1).strip()
+                    recovery_attempted = True
+                else:
+                    return None, {
+                        "parser_stage": "fence_extraction",
+                        "issue": "Detected markdown fence but could not extract a closed JSON block.",
+                        "recovery_attempted": recovery_attempted,
+                        "raw_preview": cleaned[:300],
+                    }
 
         try:
             data = json.loads(cleaned)
-            return data if isinstance(data, dict) else None
-        except Exception:
-            return None
+            if isinstance(data, dict):
+                return data, None
+            return None, {
+                "parser_stage": "type_check",
+                "issue": f"Parsed payload type is {type(data).__name__}; expected object.",
+                "recovery_attempted": recovery_attempted,
+                "raw_preview": cleaned[:300],
+            }
+        except json.JSONDecodeError as first_error:
+            # Lightweight repair: remove trailing commas before } or ]
+            repaired = re.sub(r",\s*([}\]])", r"\1", cleaned)
+            if repaired != cleaned:
+                recovery_attempted = True
+                try:
+                    data = json.loads(repaired)
+                    if isinstance(data, dict):
+                        return data, {
+                            "parser_stage": "repair",
+                            "issue": "Recovered by removing trailing commas.",
+                            "recovery_attempted": True,
+                        }
+                    return None, {
+                        "parser_stage": "type_check",
+                        "issue": f"Parsed repaired payload type is {type(data).__name__}; expected object.",
+                        "recovery_attempted": True,
+                        "raw_preview": repaired[:300],
+                    }
+                except json.JSONDecodeError:
+                    pass
+
+            likely_truncated = LLMService._looks_truncated_json(cleaned)
+            return None, {
+                "parser_stage": "json_decode",
+                "issue": "Likely truncated JSON output." if likely_truncated else "JSON syntax decode failed.",
+                "recovery_attempted": recovery_attempted,
+                "line": first_error.lineno,
+                "column": first_error.colno,
+                "raw_preview": cleaned[:350],
+            }
+        except Exception as exc:
+            return None, {
+                "parser_stage": "unknown",
+                "issue": f"Unexpected parser failure: {exc}",
+                "recovery_attempted": recovery_attempted,
+                "raw_preview": cleaned[:300],
+            }
+
+    @staticmethod
+    def _looks_truncated_json(text: str) -> bool:
+        depth = 0
+        in_string = False
+        escape = False
+
+        for ch in text:
+            if escape:
+                escape = False
+                continue
+            if ch == "\\":
+                escape = True
+                continue
+            if ch == '"':
+                in_string = not in_string
+                continue
+            if in_string:
+                continue
+            if ch in "[{":
+                depth += 1
+            elif ch in "]}":
+                depth -= 1
+
+        return depth != 0 or in_string or escape
 
 
