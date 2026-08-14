@@ -1,0 +1,721 @@
+================================================================================
+CFA DIGITAL CANDIDATE JOURNEY — COMPLETE DESIGN DOCUMENT
+================================================================================
+Version: 2.0 (FINAL — supersedes v1.0 early lock)
+Status: LOCKED — all open items resolved except embedding model confirmation
+App Name: CFA Digital Journey
+Subtitle (small italic under title):
+  "End-to-end candidate platform for CFA examination and learning"
+Prepared for: Antigravity + Speckit-driven implementation
+BRD Source: requirement/requirement1.txt (BR-01 through BR-18)
+Related docs (same folder):
+  uilabelling.txt
+  sessionlog.txt
+  knowledgebase.txt
+  agentspec.txt
+  datamodel.txt
+  antigravity_prompt.txt
+API Keys location: C:\Users\AkshatSinha\Documents\avd\QET CFA\keys
+Project root (Windows): C:\Users\AkshatSinha\Documents\avd\QET CFA
+Repository name: cfa-digital-journey
+================================================================================
+
+1. PROJECT OVERVIEW AND PURPOSE
+--------------------------------------------------------------------------------
+Build a single-repo Streamlit POC covering the full CFA candidate lifecycle:
+registration → KYC → discovery → enrollment/payment → personalized learning →
+AI tutor → mock exams → exam delivery/proctoring → results → digital certificate
+→ notifications → support chatbot.
+
+Governance: Speckit methodology inside Antigravity
+  /speckit-constitution → /speckit-specify → /speckit-clarify →
+  /speckit-plan → /speckit-tasks → /speckit-implement
+
+Core product principle (constitution law):
+  AI NARRATES, NEVER DECIDES.
+  Eligibility, payment, scoring, KYC pass/fail, certificate issuance =
+  pure deterministic Python + SQLite. Agents only explain/advise.
+
+Sibling pattern reference: cfa-onboarding-poc
+  (reuse spirit of rules-first + synthetic-only + offline-capable)
+
+================================================================================
+
+2. PROBLEM STATEMENT — 18 BRs CLASSIFIED
+--------------------------------------------------------------------------------
+Epic grouping (locked):
+
+  A. Onboarding & Identity     BR-01, BR-02
+  B. Discovery & Enrollment    BR-03, BR-04, BR-09
+  C. Learning Ecosystem        BR-05, BR-06, BR-07, BR-08, BR-13
+  D. Exam Delivery             BR-10
+  E. Results & Credentialing   BR-11, BR-12
+  F. Engagement & Support      BR-14, BR-15
+  Cross-cutting                BR-16, BR-17, BR-18 → constitution + Admin
+
+Static / Hybrid / AI-required (must tag every AC in every spec.md):
+
+  BR-01 Registration/Onboarding     STATIC
+  BR-02 KYC                         HYBRID (AI signal + rule threshold)
+  BR-03 Discovery                   STATIC (+ optional AI explain)
+  BR-04 Enrollment & Payment        STATIC (never AI)
+  BR-05 Personalized Learning Path  HYBRID (date math + AI narration)
+  BR-06 LMS Content                 STATIC
+  BR-07 AI Tutor                    AI-REQUIRED (RAG + LLM grounded)
+  BR-08 Practice/Mock Exams         HYBRID (score key static; feedback AI)
+  BR-09 Exam Scheduling             STATIC
+  BR-10 Exam Delivery & Proctoring  HYBRID (anomaly signal AI; gate static)
+  BR-11 Results/Score Reporting     STATIC (never AI)
+  BR-12 Digital Certification       STATIC (never AI)
+  BR-13 Progress/Analytics          HYBRID (aggregations static; narrative AI)
+  BR-14 Notifications               STATIC (in-app POC)
+  BR-15 Support Chatbot             AI-REQUIRED (FAQ RAG + escalate)
+  BR-16 Accessibility               STATIC (constitution)
+  BR-17 Privacy/Security            STATIC (constitution)
+  BR-18 Reliability/Scalability     STATIC (constitution)
+
+Rule of thumb:
+  If a wrong answer is a compliance/financial/safety problem
+  (payment, eligibility, scoring, certification) → STATIC only.
+
+================================================================================
+
+3. FINAL UI STRUCTURE (LOCKED)
+--------------------------------------------------------------------------------
+Layout:
+  LEFT SIDEBAR  — primary navigation (Streamlit st.navigation)
+  MAIN CONTENT  — page body with subtabs
+  RIGHT RAIL    — persistent AI Companion (always visible)
+  TOP RIGHT     — Profile Switcher dropdown (always visible)
+
+App chrome:
+  Browser tab / sidebar header: "CFA Digital Journey"
+  Under title (small italic):
+    "End-to-end candidate platform for CFA examination and learning"
+
+9 tabs + Admin:
+
+  1. Dashboard
+     Subtabs: Overview | My Progress | Upcoming Deadlines
+     BR: BR-13 (+ summary cards from other BRs)
+     Post-certification state (Q14 = B):
+       Dashboard shows "CFA Charterholder 🏆"
+       Member-style view: certificate card, LinkedIn share,
+       verification link, "Start CPD" placeholder only
+       (CPD = Continuing Professional Development — NOT built)
+
+  2. My Profile
+     Subtabs: Register / SSO | Profile & Education | Identity Verification (KYC)
+     BR: BR-01, BR-02
+     Labelling: SYSTEM ONLY — no AI tags on eligibility/KYC decisions
+
+  3. Explore & Enroll
+     Subtabs: Explore Programs | Eligibility Check | Enroll & Pay |
+              Schedule / Reschedule Exam
+     BR: BR-03, BR-04, BR-09
+     Labelling: hybrid tags where AI explains fees/windows; payment = system
+
+  4. Study Room
+     Subtabs: My Study Plan | Curriculum Library | AI Tutor |
+              Practice & Mock Exams | Performance Breakdown
+     BR: BR-05, BR-06, BR-07, BR-08, BR-13
+     Study plan edit (Q8 = B+C, Q18 = A):
+       - Drag-and-drop reorder topics
+       - Chatbot can edit plan
+       - Last action wins, no confirmation popup
+       - Both update same SQLite study_plans row
+       - UI re-renders immediately
+
+  5. Exam Center
+     Subtabs: Exam Day Check-in | Proctoring Session | Integrity Log
+     BR: BR-10
+     High-stakes: expandable source panels expanded by default
+
+  6. My Credentials
+     Subtabs: Score Report | Digital Certificate / Badge | Verify / Share Link
+     BR: BR-11, BR-12
+     Certificate (Q12 = C): badge card + shareable link + verification page
+       (name, level, date, verification ID)
+     SYSTEM ONLY for pass/fail and certificate issuance
+
+  7. Notifications
+     Subtabs: Inbox | Channel & Frequency Preferences
+     BR: BR-14
+     POC (Q13 = A): in-app only (bell + inbox). No real email/SMS.
+
+  8. Help & Support
+     Subtabs: Chat History | My Tickets (escalated) | FAQ
+     BR: BR-15
+     Chat history: last 10 messages per user (Q6 = C), also full session
+     files under logs/chatdata/
+
+  9. Admin (Tools Hub)
+     Subtabs:
+       Content / Curriculum Manager
+       Vector Store Manager (view + rebuild + upload docs)  [Q10 = C]
+       Question Bank Manager
+       Notification Templates
+       Data & DB (seed/reset)
+       Audit & Logs
+       Accessibility Settings
+       Profile Generator & Upload   [Q15 = C]
+     Access (Q9 = A): same login; Admin tab visible to all for POC simplicity
+
+Profile Switcher (top-right) — Q16 = B:
+  Format: "👤 John Smith — Level I ▼"
+  Lists all saved SQLite profiles
+  Instant re-render of all pages for selected profile
+  On switch (Q21 = C):
+    - Current chat session file closes and saves
+    - New profile's latest session loads
+    - UI divider: "── Switched to Sarah Chen (Level II) ──"
+    - New session file starts for new profile
+
+Profile Generator (Admin) — Q15 = C:
+  Manual form OR AI-generate button
+  AI-generate params example:
+    "Level I candidate, engineering background, 8 months to exam"
+  Preview card → Save → appears in top-right dropdown
+  Fields: full name, synthetic email, education, work exp,
+          level interest, target exam date, study hours/week,
+          knowledge level, optional mock score seeds
+
+Right-rail AI Companion (always labeled "AI Companion" — Q4):
+  Context routing (internal, invisible to user):
+    Study Room        → Tutor agent (curriculum FAISS)
+    Explore & Enroll  → Support/fees helper (policies_fees)
+    Help & Support    → Support agent (faq + policies)
+    Other pages       → General assistant (limited KB + profile)
+  Cross-profile (Q17 = B):
+    Answers ABOUT other profiles informationally
+    Does NOT switch active profile via chat
+  Memory (Q7 = C): last 8 messages as conversation context
+  Persistence (Q6 = C): last 10 messages per user in SQLite +
+    full JSON sessions in logs/chatdata/{username_level}/
+  Sources (Q5 = B+C):
+    If sources exist → "▶ View Sources" expandable
+    If no sources → response only
+  NEVER decides eligibility / payment / scoring / KYC
+
+BR → tab mapping:
+  BR-01, BR-02           → My Profile
+  BR-03, BR-04, BR-09    → Explore & Enroll
+  BR-05..08, BR-13       → Study Room + Dashboard
+  BR-10                  → Exam Center
+  BR-11, BR-12           → My Credentials
+  BR-14                  → Notifications
+  BR-15                  → Help & Support
+  BR-16, BR-17, BR-18    → Constitution + Admin surfaces
+
+Mobile: NOT in scope (Q3 labelling discussion). Desktop Streamlit only.
+
+================================================================================
+
+4. TECH STACK (FINAL LOCKED)
+--------------------------------------------------------------------------------
+Layer                 Choice                              Rationale
+--------------------------------------------------------------------------------
+UI                    Streamlit                           Fast POC, one process,
+                                                          sibling-project match
+API / Transport       None (Python modules)               FastAPI DEFERRED.
+                                                          services/ has no Streamlit
+                                                          imports → FastAPI-ready later
+Orchestration         CrewAI (multi-agent)                User-requested specialist
+                                                          agents (Router/Tutor/
+                                                          Planner/Support)
+State machines        LangGraph NOT day-1                 Optional later for exam-day
+                                                          check-in flow only
+RAG toolbox           LangChain                           Loaders, splitters, FAISS,
+                                                          tools, prompt templates
+                                                          under CrewAI
+Chat LLMs             OpenAI GPT-4o  AND  Gemini          UI toggle / factory pattern
+                                                          Admin: provider dropdown +
+                                                          Test connection
+Embeddings            OpenAI text-embedding-3-small       FROZEN after first build
+                      (RECOMMENDED default)               Changing = rebuild ALL FAISS
+                                                          Confirm before Phase 0 if
+                                                          Gemini embeddings preferred
+Vector store          FAISS (split indexes)               Local, offline, user choice.
+                                                          Metadata filtering via SPLIT
+                                                          indexes (not one giant index)
+Business DB           SQLite  data/cfa_journey.db         Lightweight, offline, POC
+Auth (POC)            Streamlit session_state             Simple; production out of scope
+Chat memory           ConversationBufferWindowMemory k=8  + SQLite chat_sessions +
+                                                          logs/chatdata/ JSON files
+Secrets               .env via python-dotenv              Keys in /keys folder;
+                                                          never commit; never print
+Deploy                Local / Docker                      Demo and testing
+
+Why FastAPI deferred:
+  Streamlit + CrewAI same process. No external consumers yet.
+  Extra uvicorn process adds debug cost with zero POC benefit.
+
+Why CrewAI over LangGraph day-1:
+  Product story = named specialists (tutor/planner/support).
+  Hard rules stay in Python services, not in the LLM.
+
+Why FAISS over Chroma/Pinecone/Qdrant/Weaviate:
+  User choice + offline/local/offline.
+  Weak metadata filter mitigated by domain-split indexes.
+
+Embedding freeze rule:
+  Chat model may switch freely at runtime.
+  Embedding model must NOT switch after indexes are built.
+  Rebuild indexes only via Admin → Vector Store Manager.
+
+================================================================================
+
+5. FAISS INDEX DESIGN
+--------------------------------------------------------------------------------
+faiss_indexes/
+  curriculum_l1/      ← Level I topics, readings, LOS
+  curriculum_l2/      ← Level II weights + available structure (partial)
+  curriculum_l3/      ← Level III core + pathways (partial)
+  policies_fees/      ← fees, windows, eligibility, reschedule, deferral
+  faq_support/        ← FAQ + exam day + results/certification
+  glossary/           ← CFA candidate terms
+  question_bank/      ← synthetic MCQs (optional search)
+
+Agent permission matrix:
+  Router     → no index (page context + intent only)
+  Tutor      → curriculum_l1 / l2 / l3 only
+  Planner    → curriculum_* + question_bank + SQLite profile/progress
+  Support    → faq_support + policies_fees (+ glossary fallback)
+
+Grounding rules (non-negotiable):
+  1. Answer ONLY from retrieved context
+  2. If context empty → exact phrase:
+       "I don't have that information. Please refer to the official
+        CFA Institute website (cfainstitute.org)."
+  3. Always cite source document/section when context used
+  4. Fees / eligibility / pass-fail NEVER invented by LLM —
+     those live in SQLite + Python rules; agents may only explain them
+
+System prompt template (every agent):
+  """
+  You are {role} for CFA Digital Journey.
+  Answer ONLY from the provided context blocks.
+  If the answer is not in the context, say you don't have that
+  information and refer the user to cfainstitute.org.
+  Always cite the source document/section used.
+  Never decide eligibility, payment status, exam scores, KYC
+  outcomes, or certificate issuance. Those are system decisions.
+  Active profile and page context are injected below — use them
+  to personalize explanations, not to invent facts.
+  """
+
+Source files → indexes (see knowledgebase.txt for full map):
+  knowledge_base/raw/curriculum_structure.md  → curriculum_l*
+  knowledge_base/raw/fees_registration.md     → policies_fees
+  knowledge_base/raw/exam_day_rules.md        → faq_support
+  knowledge_base/raw/results_certification.md → faq_support
+  knowledge_base/raw/faq_candidates.md        → faq_support
+  knowledge_base/raw/glossary.md              → glossary
+
+Build script: scripts/build_indexes.py
+Rebuild trigger: Admin Tools Hub → Vector Store Manager → Rebuild
+
+================================================================================
+
+6. AI COMPANION COMPLETE SPEC
+--------------------------------------------------------------------------------
+Pre-prompt injection (Q22 locked) — every call:
+
+  [SYSTEM CONTEXT]
+    Active Profile: {name}, {level}, {exam_date},
+                    {study_hours_week}, {mock_scores_summary}
+    Current Page: {page_name}
+    Conversation History: {last_8_messages}
+
+  [RULES]
+    Answer in context of active candidate profile.
+    General CFA knowledge → answer from RAG only.
+    Candidate-specific → answer from profile/SQLite data.
+    Other profile queries → informational only; never switch active profile.
+    Never decide eligibility / payment / scoring / KYC / certificate.
+    Always cite source if answer comes from CFA documents.
+    If no context found → "I don't have that information.
+      Please refer to the official CFA Institute website."
+
+Session memory: last 8 messages (rolling window)
+Persistent store:
+  SQLite chat_sessions (metadata) +
+  logs/chatdata/{profile_folder}/session_YYYY_MM_DD.json
+
+Session JSON shape:
+  {
+    "profile_id": "john_smith_l1",
+    "session_date": "2024-01-15",
+    "page_context": "Study Room",
+    "messages": [
+      {
+        "timestamp": "2024-01-15T10:23:00",
+        "role": "user",
+        "content": "...",
+        "page": "Study Room"
+      },
+      {
+        "timestamp": "2024-01-15T10:23:05",
+        "role": "assistant",
+        "content": "...",
+        "sources": ["CFA L1 Ethics Reading 2"],
+        "model_used": "GPT-4o",
+        "context_used": "last_8_messages"
+      }
+    ]
+  }
+
+Profile switch behavior:
+  close + save current session → load target profile session →
+  UI divider line → start new session file for new profile
+
+Source display:
+  Response first
+  If sources → expandable "▶ View Sources"
+  Nested (optional): chunks + relevance scores
+  High-stakes pages: expanded by default
+  Standard pages: collapsed by default
+
+Chat storage path (Windows):
+  C:\Users\AkshatSinha\Documents\avd\QET CFA\logs\chatdata\
+    john_smith_l1\
+    sarah_chen_l2\
+    admin\
+
+================================================================================
+
+7. IMPLEMENTATION PHASES 0–6
+--------------------------------------------------------------------------------
+Phase 0 — Constitution & Repo Setup
+  - Create cfa-digital-journey repo structure
+  - .env.example, requirements.txt, README.md
+  - /speckit-constitution → .speckit/memory/constitution.md
+  - decisions.md seed
+  - Empty FAISS folders + scripts/build_indexes.py stub
+  - SQLite schema create (see datamodel.txt)
+  Gate: constitution reviewed and approved by human
+
+Phase 1 — 001-onboarding-identity (BR-01, BR-02)
+  Data needed: 3 synthetic candidate profiles
+  Speckit: specify → clarify → plan → tasks → implement
+  Gate: register + profile + KYC mock flow works; tests pass
+
+Phase 2 — 002-discovery-enrollment (BR-03, BR-04, BR-09)
+  Data needed: fee schedule 2025/2026, exam windows, centers/remote slots
+  Gate: eligibility rule engine + mock payment + slot book/reschedule
+
+Phase 3 — 003-learning-ecosystem (BR-05, BR-06, BR-07, BR-08, BR-13)
+  Data needed: curriculum markdown, question bank, study plan params
+  Build FAISS curriculum + question_bank indexes
+  CrewAI Tutor + Planner live
+  Gate: study plan generate/edit, tutor grounded answers, mock exam score
+
+Phase 4 — 004-exam-delivery (BR-10)
+  Data needed: synthetic proctoring thresholds
+  Gate: check-in gate, mock proctoring flags logged, encrypted response stub
+
+Phase 5 — 005-results-credentialing (BR-11, BR-12)
+  Data needed: scoring bands, certificate template
+  Gate: score report, badge card, verification page, LinkedIn share stub
+
+Phase 6 — 006-engagement-support (BR-14, BR-15)
+  Data needed: notification templates, FAQ index built
+  CrewAI Support live; tickets; in-app notifications
+  Gate: full journey demo end-to-end on one synthetic profile
+
+Every phase:
+  1. /speckit-specify   → specs/00N-xxx/spec.md (tag each AC Static/Hybrid/AI)
+  2. /speckit-clarify   → questions answered, written into spec
+  3. /speckit-plan      → modules, agents, tables, indexes
+  4. /speckit-tasks     → numbered tasks with dependencies
+  5. /speckit-implement → task-by-task, pause for human review
+  Do NOT start next phase until current phase tests pass and app runs E2E.
+
+================================================================================
+
+8. PROFILE GENERATOR AND SWITCHER
+--------------------------------------------------------------------------------
+Location: Admin → Profile Generator & Upload
+Modes: Manual form | AI Generate
+Save target: candidates table (SQLite)
+Immediate effect: profile appears in top-right dropdown
+
+Switcher:
+  Top-right always-visible dropdown
+  Switching reloads session state for that candidate_id
+  All pages read active_profile_id from session_state
+  Chat isolation per profile (see Section 6)
+
+================================================================================
+
+9. CHAT DATA STORAGE STRUCTURE
+--------------------------------------------------------------------------------
+logs/
+  chatdata/
+    {firstname_lastname_lN}/
+      session_YYYY_MM_DD.json
+    admin/
+      session_YYYY_MM_DD.json
+
+SQLite chat_sessions holds session_id, candidate_id, page_context,
+started_at, ended_at, message_count, file_path.
+
+On profile switch: divider in UI + new session file.
+
+================================================================================
+
+10. KNOWLEDGE BASE SUMMARY
+--------------------------------------------------------------------------------
+Full detail: knowledgebase.txt
+
+NotebookLM history:
+  v1 Prompts 2–6 were GIPS-contaminated (firm compliance, not candidate admin)
+  v1 Prompt 1 curriculum → KEEP
+  v2 Prompts 2–6 (candidate-facing) → KEEP and use for RAG
+
+Raw files to place before Antigravity Phase 3+:
+  knowledge_base/raw/
+    curriculum_structure.md
+    fees_registration.md
+    exam_day_rules.md
+    results_certification.md
+    faq_candidates.md
+    glossary.md
+
+Index feed map:
+  curriculum_structure.md  → curriculum_l1, l2, l3
+  fees_registration.md     → policies_fees
+  exam_day_rules.md        → faq_support
+  results_certification.md → faq_support
+  faq_candidates.md        → faq_support
+  glossary.md              → glossary
+  (synthetic generator)    → question_bank
+
+Known gaps (flag in UI as "not found — check cfainstitute.org"):
+  Exact calculator model list
+  Exact accepted ID list
+  Full accommodation type list
+  L2/L3 detailed readings/LOS (weights only today)
+
+================================================================================
+
+11. DECISIONS LOG (COMPRESSED — full narrative in sessionlog.txt)
+--------------------------------------------------------------------------------
+D01  Single repo, multiple Speckit features                 ACCEPTED
+D02  Build order A→F matching BRD epics                     ACCEPTED
+D03  Navigation Option A modified (9 tabs + right rail)     ACCEPTED
+D04  UI = Streamlit                                         ACCEPTED
+D05  DB = SQLite                                            ACCEPTED
+D06  FastAPI deferred; modules FastAPI-ready                ACCEPTED
+D07  CrewAI multi-agent (Router/Tutor/Planner/Support)      ACCEPTED
+D08  LangChain under CrewAI for RAG/tools                   ACCEPTED
+D09  LangGraph not day-1                                    ACCEPTED
+D10  FAISS with SPLIT domain indexes                        ACCEPTED
+D11  Chat LLM switcher OpenAI + Gemini                      ACCEPTED
+D12  Embedding model frozen (OpenAI text-embedding-3-small
+     recommended — CONFIRM before build)                    PENDING CONFIRM
+D13  AI narrates, never decides                             ACCEPTED
+D14  Speckit workflow mandatory                             ACCEPTED
+D15  Synthetic data only, no real PII                       ACCEPTED
+D16  UI labelling 3-tier (headers + tags + expandable)      ACCEPTED
+D17  Friendly tag language [AI Suggested ✨] etc.           ACCEPTED
+D18  No mobile scope                                        ACCEPTED
+D19  Q1 disclaimer = per AI section                         ACCEPTED
+D20  Q2 no-context = collapse; expand shows C or B message  ACCEPTED
+D21  Q3 high-stakes expandable = expanded by default        ACCEPTED
+D22  Q4 AI Companion label always "AI Companion"            ACCEPTED
+D23  Q5 sources = B+C expandable when present               ACCEPTED
+D24  Q6 chat history = last 10 per user persistent          ACCEPTED
+D25  Q7 tutor memory = last 8 messages                      ACCEPTED
+D26  Q8 study plan = drag-drop AND chat edit                ACCEPTED
+D27  Q9 admin = same login, tab visible                     ACCEPTED
+D28  Q10 vector manager = view+rebuild+upload               ACCEPTED
+D29  Q11 mock exam = untimed for POC                        ACCEPTED
+D30  Q12 certificate = badge card + shareable link          ACCEPTED
+D31  Q13 notifications = in-app only                        ACCEPTED
+D32  Q14 post-cert = Charterholder state + CPD placeholder  ACCEPTED
+D33  Q15 profile generator = manual OR AI-generate          ACCEPTED
+D34  Q16 profile switcher = top-right dropdown              ACCEPTED
+D35  Q17 cross-profile = informational, no switch via chat  ACCEPTED
+D36  Q18 study plan conflict = last action wins             ACCEPTED
+D37  Q19 expandable = model/source/time/disclaimer always;
+     chunks+scores nested; source in expandable;
+     disclaimer small grey italic                           ACCEPTED
+D38  Q20 app name = CFA Digital Journey + italic subtitle   ACCEPTED
+D39  Q21 chat on profile switch = per-profile history (C)
+     + logs/chatdata/{user_level}/ storage                  ACCEPTED
+D40  Q22 pre-prompt structure locked as Section 6           ACCEPTED
+D41  CPD = out of scope beyond placeholder                  ACCEPTED
+D42  No separate member role/portal                         ACCEPTED
+D43  NotebookLM v1 GIPS outputs for prompts 2-5 REJECTED    ACCEPTED
+D44  NotebookLM v1 prompt 1 curriculum KEPT                 ACCEPTED
+D45  NotebookLM v2 candidate responses KEPT for RAG         ACCEPTED
+D46  Folder names prefer hyphens in repo (no trailing space) ACCEPTED
+D47  Keys loaded from keys/ via .env only                   ACCEPTED
+
+================================================================================
+
+12. CONSTITUTION PRINCIPLES (ALL FEATURES)
+--------------------------------------------------------------------------------
+Full text produced by /speckit-constitution into
+  .speckit/memory/constitution.md
+
+Must include:
+  1. Deterministic rules first (eligibility, payment, scoring, KYC, certificate)
+  2. AI narrates, never decides; agents cannot write business state
+  3. Typed contracts: agents call services/, never raw SQL
+  4. Auditability: every agent call logged (see audit_log table)
+  5. Reproducibility: seed scripts rebuild DB + indexes
+  6. Offline-capable except LLM API calls
+  7. Synthetic-only data; no real PII
+  8. RAG grounding: context-only answers + source citation + I-don't-know
+  9. FAISS split indexes + agent permission matrix
+  10. Embedding freeze rule
+  11. UI labelling three-tier system (see uilabelling.txt)
+  12. BR-16 WCAG 2.1 AA — color never alone; icon+text tags
+  13. BR-17 privacy — encrypt PII at rest (even synthetic), RBAC simulated,
+      consent flags, retention
+  14. BR-18 reliability — LLM retry (3), clear errors, state across reruns
+  15. Speckit workflow mandatory; no freestyle feature builds
+  16. Every spec.md tags each AC as Static / Hybrid / AI-required
+
+================================================================================
+
+13. REPO STRUCTURE (COMPLETE)
+--------------------------------------------------------------------------------
+cfa-digital-journey/
+  .env.example
+  .gitignore                 # includes .env, keys/, *.db, faiss binaries
+  requirements.txt
+  README.md
+  app.py                     # Streamlit entry
+  pages/                     # or multipage via st.navigation
+    dashboard.py
+    my_profile.py
+    explore_enroll.py
+    study_room.py
+    exam_center.py
+    my_credentials.py
+    notifications.py
+    help_support.py
+    admin.py
+  components/
+    ai_companion.py          # right rail
+    profile_switcher.py      # top-right
+    tags.py                  # labelling badges
+    expandable_source.py
+    disclaimer.py
+  services/                  # NO streamlit imports
+    eligibility.py
+    payment.py
+    scoring.py
+    kyc_rules.py
+    scheduling.py
+    study_plan_engine.py
+    notifications_svc.py
+    certificate_svc.py
+    profile_service.py
+  agents/
+    router_agent.py
+    tutor_agent.py
+    planner_agent.py
+    support_agent.py
+    crew_config.py
+    llm_factory.py           # OpenAI | Gemini switch
+    prompts.py
+  tools/
+    faiss_retriever.py
+    sqlite_tools.py
+    ticket_tool.py
+  vector_store/
+    faiss_indexes/
+      curriculum_l1/
+      curriculum_l2/
+      curriculum_l3/
+      policies_fees/
+      faq_support/
+      glossary/
+      question_bank/
+    build_meta.json
+  knowledge_base/
+    raw/
+    processed/
+  data/
+    cfa_journey.db
+    seed/
+  scripts/
+    build_indexes.py
+    seed_db.py
+    reset_db.py
+  logs/
+    chatdata/
+    audit/
+  specs/
+    000-constitution.md
+    001-onboarding-identity/
+      spec.md
+      plan.md
+      tasks.md
+    002-discovery-enrollment/
+    003-learning-ecosystem/
+    004-exam-delivery/
+    005-results-credentialing/
+    006-engagement-support/
+  .speckit/
+    memory/
+      constitution.md
+      decisions.md
+    config.yaml
+  tests/
+
+Sibling path notes (Windows host):
+  Project: C:\Users\AkshatSinha\Documents\avd\QET CFA\
+  Requirement docs: ...\requirement\
+  Keys: ...\keys\
+  Avoid trailing spaces in folder names (tooling breakage).
+
+================================================================================
+
+14. REFERENCE TO antigravity_prompt.txt
+--------------------------------------------------------------------------------
+Standalone master prompt lives in:
+  requirement/antigravity_prompt.txt
+
+Paste that file's Section 2 into Antigravity with these attachments:
+  designdoc.txt
+  uilabelling.txt
+  requirement1.txt
+  knowledgebase.txt
+  agentspec.txt
+  datamodel.txt
+
+Start Phase 0 only. Pause for constitution review before any Phase 1 code.
+
+================================================================================
+
+15. OPEN ITEMS
+--------------------------------------------------------------------------------
+OPEN (1):
+  Embedding model final pick:
+    A) OpenAI text-embedding-3-small   ← RECOMMENDED default in this doc
+    B) Gemini embedding model
+  Answer A or B before first FAISS build. Then ZERO open items.
+
+CLOSED: all Q1–Q22, stack, navigation, labelling, agents, storage, phases.
+
+================================================================================
+
+16. SYNTHETIC DATA CHECKLIST (BY PHASE)
+--------------------------------------------------------------------------------
+Phase 1: 3 candidate profiles (varied levels/backgrounds)
+Phase 2: Fee tables 2025+2026, exam window matrix, centers, remote flag
+Phase 3: curriculum_structure.md ingested; ~N MCQs/topic; plan params
+Phase 4: proctoring rule thresholds (face missing >5s, etc.)
+Phase 5: MPS band labels, certificate HTML/CSS template, verify codes
+Phase 6: notification templates; FAQ index live
+
+No real names, emails, passport numbers, or production credentials.
+
+================================================================================
+END OF DESIGN DOCUMENT v2.0
+================================================================================

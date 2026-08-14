@@ -1,0 +1,339 @@
+================================================================================
+CFA DIGITAL JOURNEY — SQLITE DATA MODEL
+================================================================================
+Version: 2.0 FINAL
+DB file: data/cfa_journey.db
+Seed:    scripts/seed_db.py
+Reset:   scripts/reset_db.py + Admin Tools Hub button
+================================================================================
+
+1. DATABASE OVERVIEW
+--------------------------------------------------------------------------------
+Engine: SQLite 3, single file, offline-capable
+Access: only via services/ layer (agents never raw-SQL)
+PII: synthetic only; encrypt sensitive columns at rest if trivial
+     (e.g. Fernet for email) — document approach in constitution
+
+Naming: snake_case tables and columns
+Timestamps: ISO-8601 text UTC unless noted
+JSON columns: TEXT storing JSON arrays/objects
+
+================================================================================
+
+2. TABLE: candidates
+--------------------------------------------------------------------------------
+id                INTEGER PK AI
+name              TEXT NOT NULL
+email             TEXT NOT NULL UNIQUE          -- synthetic
+education         TEXT
+work_exp_hours    INTEGER DEFAULT 0
+work_exp_months   INTEGER DEFAULT 0
+level_interest    TEXT CHECK IN ('I','II','III')
+target_exam_date  TEXT                          -- YYYY-MM-DD
+study_hours_week  INTEGER DEFAULT 10
+knowledge_level   TEXT                          -- beginner/intermediate/...
+kyc_status        TEXT DEFAULT 'pending'        -- pending|verified|flagged|rejected
+profile_type      TEXT DEFAULT 'candidate'      -- candidate|admin
+role              TEXT DEFAULT 'candidate'
+created_at        TEXT NOT NULL
+updated_at        TEXT
+consent_flags     TEXT                          -- JSON
+notes             TEXT
+
+================================================================================
+
+3. TABLE: enrollments
+--------------------------------------------------------------------------------
+id                INTEGER PK AI
+candidate_id      INTEGER NOT NULL REFERENCES candidates(id)
+level             TEXT NOT NULL
+status            TEXT                          -- draft|confirmed|cancelled
+payment_status    TEXT                          -- unpaid|paid|refunded|failed
+payment_amount    REAL
+payment_currency  TEXT DEFAULT 'USD'
+payment_method    TEXT                          -- card|netbanking|wallet|mock
+enrolled_at       TEXT
+receipt_id        TEXT
+fee_window        TEXT                          -- early|standard
+registration_year INTEGER                       -- 2025|2026 pricing basis
+
+================================================================================
+
+4. TABLE: exam_slots
+--------------------------------------------------------------------------------
+id                INTEGER PK AI
+candidate_id      INTEGER NOT NULL REFERENCES candidates(id)
+level             TEXT NOT NULL
+slot_date         TEXT
+slot_time         TEXT
+center_type       TEXT                          -- center|remote
+center_name       TEXT
+booking_status    TEXT                          -- held|confirmed|rescheduled|cancelled|noshow
+confirmation_code TEXT
+rescheduled_from  INTEGER                       -- self-FK nullable
+cancelled_at      TEXT
+reschedule_fee    REAL DEFAULT 0
+
+================================================================================
+
+5. TABLE: study_plans
+--------------------------------------------------------------------------------
+id                INTEGER PK AI
+candidate_id      INTEGER NOT NULL REFERENCES candidates(id)
+level             TEXT NOT NULL
+topic             TEXT NOT NULL
+subtopic          TEXT
+week_number       INTEGER
+sort_order        INTEGER
+planned_hours     REAL
+status            TEXT                          -- planned|in_progress|done|skipped
+source            TEXT                          -- ai_suggested|manual|chat
+modified_at       TEXT
+modified_by       TEXT                          -- drag|chat|ai|seed
+
+================================================================================
+
+6. TABLE: content_progress
+--------------------------------------------------------------------------------
+id                INTEGER PK AI
+candidate_id      INTEGER NOT NULL REFERENCES candidates(id)
+level             TEXT
+reading_id        TEXT
+reading_title     TEXT
+topic             TEXT
+completion_pct    REAL DEFAULT 0
+time_spent_minutes INTEGER DEFAULT 0
+last_accessed     TEXT
+
+================================================================================
+
+7. TABLE: mock_exams
+--------------------------------------------------------------------------------
+id                INTEGER PK AI
+candidate_id      INTEGER NOT NULL REFERENCES candidates(id)
+exam_id           TEXT
+level             TEXT
+attempt_number    INTEGER
+started_at        TEXT
+submitted_at      TEXT
+total_questions   INTEGER
+correct_answers   INTEGER
+score_pct         REAL
+topic_breakdown   TEXT                          -- JSON
+weak_areas        TEXT                          -- JSON list
+timed             INTEGER DEFAULT 0             -- 0 for POC
+
+================================================================================
+
+8. TABLE: questions
+--------------------------------------------------------------------------------
+question_id       TEXT PK
+level             TEXT
+topic             TEXT
+subtopic          TEXT
+difficulty        TEXT                          -- easy|medium|hard
+question_text     TEXT NOT NULL
+option_a          TEXT
+option_b          TEXT
+option_c          TEXT
+option_d          TEXT
+correct_option    TEXT                          -- A|B|C|D
+explanation       TEXT
+los_reference     TEXT
+
+================================================================================
+
+9. TABLE: exam_sessions
+--------------------------------------------------------------------------------
+id                INTEGER PK AI
+candidate_id      INTEGER NOT NULL REFERENCES candidates(id)
+level             TEXT
+session_id        TEXT UNIQUE
+started_at        TEXT
+submitted_at      TEXT
+proctoring_log    TEXT                          -- JSON events
+integrity_flags   TEXT                          -- JSON
+status            TEXT                          -- not_started|in_progress|submitted|void
+encrypted_responses TEXT                        -- opaque blob/text stub
+
+================================================================================
+
+10. TABLE: results
+--------------------------------------------------------------------------------
+id                INTEGER PK AI
+candidate_id      INTEGER NOT NULL REFERENCES candidates(id)
+level             TEXT
+result_id         TEXT UNIQUE
+released_at       TEXT
+pass_fail         TEXT                          -- pass|fail
+topic_bands       TEXT                          -- JSON
+score_relative_to_mps TEXT                      -- above|at|below bands narrative key
+certificate_id    TEXT                          -- FK-like to certificates
+
+================================================================================
+
+11. TABLE: certificates
+--------------------------------------------------------------------------------
+certificate_id    TEXT PK
+candidate_id      INTEGER NOT NULL REFERENCES candidates(id)
+level             TEXT                          -- charter when all three — use 'CHARTER'
+issued_at         TEXT
+verification_code TEXT UNIQUE
+linkedin_url      TEXT
+badge_url         TEXT
+verified_count    INTEGER DEFAULT 0
+
+================================================================================
+
+12. TABLE: notifications
+--------------------------------------------------------------------------------
+notification_id   INTEGER PK AI
+candidate_id      INTEGER NOT NULL REFERENCES candidates(id)
+type              TEXT
+channel           TEXT                          -- inapp|email|sms|push
+title             TEXT
+body              TEXT
+sent_at           TEXT
+read_at           TEXT
+status            TEXT                          -- queued|sent|read|failed
+
+================================================================================
+
+13. TABLE: notification_preferences
+--------------------------------------------------------------------------------
+candidate_id      INTEGER PK REFERENCES candidates(id)
+email_enabled     INTEGER DEFAULT 0             -- POC default off
+sms_enabled       INTEGER DEFAULT 0
+push_enabled      INTEGER DEFAULT 0
+inapp_enabled     INTEGER DEFAULT 1
+frequency         TEXT DEFAULT 'immediate'
+
+================================================================================
+
+14. TABLE: support_tickets
+--------------------------------------------------------------------------------
+ticket_id         INTEGER PK AI
+candidate_id      INTEGER NOT NULL REFERENCES candidates(id)
+created_at        TEXT
+subject           TEXT
+description       TEXT
+status            TEXT                          -- open|in_progress|resolved|closed
+priority          TEXT                          -- low|normal|high
+resolved_at       TEXT
+resolution_notes  TEXT
+assigned_to       TEXT
+page_context      TEXT
+
+================================================================================
+
+15. TABLE: chat_sessions
+--------------------------------------------------------------------------------
+session_id        TEXT PK
+candidate_id      INTEGER NOT NULL REFERENCES candidates(id)
+page_context      TEXT
+started_at        TEXT
+ended_at          TEXT
+message_count     INTEGER DEFAULT 0
+file_path         TEXT                          -- logs/chatdata/...
+
+================================================================================
+
+16. TABLE: audit_log
+--------------------------------------------------------------------------------
+log_id            INTEGER PK AI
+timestamp         TEXT NOT NULL
+candidate_id      INTEGER
+action_type       TEXT                          -- agent_call|login|enroll|pay|score|...
+entity            TEXT
+entity_id         TEXT
+old_value         TEXT
+new_value         TEXT
+performed_by      TEXT
+agent_used        TEXT
+model_used        TEXT
+page              TEXT
+extra_json        TEXT
+
+================================================================================
+
+17. TABLE: content_library
+--------------------------------------------------------------------------------
+content_id        TEXT PK
+level             TEXT
+topic             TEXT
+subtopic          TEXT
+reading_id        TEXT
+title             TEXT
+content_type      TEXT                          -- reading|video|los|psm
+url_or_path       TEXT
+duration_minutes  INTEGER
+
+================================================================================
+
+18. SEED DATA SPEC
+--------------------------------------------------------------------------------
+Candidates (3 minimum):
+  1. Level I — engineering bg, exam in ~8 months, 10 h/week, KYC verified
+  2. Level II — finance bg, 6 months out, mock scores seeded mid
+  3. Level III pathway interest Private Wealth — near exam
+
+Fees:
+  Seed 2025 and 2026 tables matching knowledge_base fees_registration.md
+
+Exam windows:
+  Matrix months × levels; sample centers (city names synthetic)
+
+Questions:
+  ≥5 MCQs per major L1 topic (synthetic, clearly fake)
+
+Study plan templates:
+  Default week order Ethics → Quant → Eco → FSA → ... for L1
+
+Notification templates:
+  enrollment_confirmed, exam_reminder_7d, result_ready, kyc_flagged
+
+Proctoring rules (config table optional or JSON file):
+  face_missing_seconds > 5 → flag
+  second_voice_detected → flag
+  (synthetic thresholds only)
+
+Admin user:
+  profile_type=admin, name=Admin User
+
+================================================================================
+
+19. RELATIONSHIPS (TEXT DIAGRAM)
+--------------------------------------------------------------------------------
+candidates 1──* enrollments
+candidates 1──* exam_slots
+candidates 1──* study_plans
+candidates 1──* content_progress
+candidates 1──* mock_exams
+candidates 1──* exam_sessions
+candidates 1──* results
+candidates 1──* certificates
+candidates 1──* notifications
+candidates 1──1 notification_preferences
+candidates 1──* support_tickets
+candidates 1──* chat_sessions
+candidates 1──* audit_log
+
+results *──? certificates (certificate_id)
+questions used by mock exam service (not strict FK required)
+content_library referenced by content_progress.reading_id
+
+================================================================================
+
+20. MIGRATION AND RESET
+--------------------------------------------------------------------------------
+Development: drop + seed is acceptable (POC)
+scripts/reset_db.py:
+  backup optional → delete cfa_journey.db → recreate schema → seed
+Admin Tools Hub:
+  "Reset Database (synthetic)" button with confirm checkbox
+  "Rebuild FAISS indexes" separate button
+Never point reset at non-synthetic environments (none exist in POC)
+
+================================================================================
+END OF DATA MODEL v2.0
+================================================================================

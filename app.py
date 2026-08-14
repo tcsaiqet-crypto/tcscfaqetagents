@@ -453,8 +453,102 @@ elif selected_nav == "Upload Sources":
             st.markdown("#### Language Extensions")
             st.json(summary["extension_counts"])
 
-        with st.expander("Inspected File Tree Details", expanded=False):
-            st.json(state.intake_manifest.model_dump())
+        # ── ZIP Intake File Inspector ─────────────────────────────────────
+        manifest = state.intake_manifest
+        all_files = manifest.files  # List[FileMetadata]
+        excluded_paths = set(getattr(manifest, "excluded_files", []))
+
+        _AI_EXT = {".html", ".js", ".jsx", ".ts", ".tsx", ".py",
+                   ".json", ".md", ".txt", ".css", ".scss", ".vue",
+                   ".yaml", ".yml", ".toml", ".xml", ".env"}
+        _EXT_COLORS = {
+            ".py": "#3572A5", ".ts": "#2b7489", ".tsx": "#2b7489",
+            ".js": "#f1e05a", ".jsx": "#f1e05a", ".html": "#e34c26",
+            ".css": "#563d7c", ".scss": "#c6538c", ".vue": "#2c3e50",
+            ".json": "#292929", ".md": "#083fa1", ".txt": "#4a4a4a",
+            ".yaml": "#cb171e", ".yml": "#cb171e", ".xml": "#0060ac",
+        }
+
+        included = [f for f in all_files if f.rel_path not in excluded_paths]
+        excluded = [f for f in all_files if f.rel_path in excluded_paths]
+        ai_reviewed = [f for f in included if f.extension.lower() in _AI_EXT]
+
+        def _ext_badge(ext: str) -> str:
+            color = _EXT_COLORS.get(ext.lower(), "#888888")
+            return (
+                f"<span style='background:{color};color:#fff;padding:1px 6px;"
+                f"border-radius:3px;font-size:0.7rem;font-weight:700;"
+                f"font-family:monospace;margin-right:4px'>{ext or 'no-ext'}</span>"
+            )
+
+        def _size_str(b: int) -> str:
+            if b < 1024:
+                return f"{b} B"
+            elif b < 1024 * 1024:
+                return f"{b/1024:.1f} KB"
+            return f"{b/1024/1024:.1f} MB"
+
+        def _render_file_table(files, show_reason: bool = False) -> str:
+            if not files:
+                return "<p style='color:#94A3B8;font-size:0.8rem;margin:0'>No files in this group.</p>"
+            rows = ""
+            for f in files:
+                reason = ""
+                if show_reason:
+                    reason = (
+                        "<span style='background:#FEF3C7;color:#92400E;padding:1px 6px;"
+                        "border-radius:3px;font-size:0.65rem;margin-left:6px'>binary / not AI-reviewed</span>"
+                    )
+                rows += (
+                    f"<tr style='border-bottom:1px solid #E2E8F0'>"
+                    f"<td style='padding:4px 8px;font-family:monospace;font-size:0.75rem;color:#1E3A5F'>"
+                    f"{_ext_badge(f.extension)}{f.rel_path}{reason}</td>"
+                    f"<td style='padding:4px 8px;font-size:0.72rem;color:#64748B;white-space:nowrap;text-align:right'>"
+                    f"{_size_str(f.size_bytes)}</td>"
+                    f"</tr>"
+                )
+            return (
+                "<table style='width:100%;border-collapse:collapse'>"
+                "<thead><tr style='background:#F1F5F9'>"
+                "<th style='padding:4px 8px;text-align:left;font-size:0.72rem;color:#475569'>File Path</th>"
+                "<th style='padding:4px 8px;text-align:right;font-size:0.72rem;color:#475569'>Size</th>"
+                "</tr></thead><tbody>" + rows + "</tbody></table>"
+            )
+
+        # Panel 1: Included files (collapsed by default)
+        with st.expander(
+            f"✅ Included Files — {len(included)} source files indexed "
+            f"({_size_str(sum(f.size_bytes for f in included))})",
+            expanded=False
+        ):
+            st.markdown(_render_file_table(included), unsafe_allow_html=True)
+
+        # Panel 2: AI-Reviewed files (collapsed by default)
+        with st.expander(
+            f"🤖 AI-Reviewed Files — {len(ai_reviewed)} files passed to Understanding Agent",
+            expanded=False
+        ):
+            st.markdown(
+                "<p style='font-size:0.78rem;color:#64748B;margin-bottom:8px'>"
+                "These files have source-code extensions and are read by the AI Understanding Agent "
+                "during codebase analysis. Binary assets, lock files, and maps are excluded from AI review.</p>",
+                unsafe_allow_html=True,
+            )
+            st.markdown(_render_file_table(ai_reviewed), unsafe_allow_html=True)
+
+        # Panel 3: Excluded files (collapsed by default)
+        with st.expander(
+            f"⛔ Excluded from AI Review — {len(excluded)} binary/asset files "
+            f"({_size_str(sum(f.size_bytes for f in excluded))})",
+            expanded=False
+        ):
+            st.markdown(
+                "<p style='font-size:0.78rem;color:#64748B;margin-bottom:8px'>"
+                "These files were safely extracted and indexed in the manifest but are <b>not</b> "
+                "passed to the AI Understanding Agent (binary assets, fonts, images, maps, lock files).</p>",
+                unsafe_allow_html=True,
+            )
+            st.markdown(_render_file_table(excluded, show_reason=True), unsafe_allow_html=True)
 
 elif selected_nav == "Application Understanding":
     st.title("Application Understanding")

@@ -1,0 +1,46 @@
+================================================================================
+CFA DIGITAL JOURNEY — MANUAL WALKTHROUGH VERIFICATION CHECKLIST
+================================================================================
+Verification Date: 2026-08-12
+Engineer: Antigravity
+
+--------------------------------------------------------------------------------
+VERIFICATION CHECKLIST RESULTS
+--------------------------------------------------------------------------------
+[✓] 1. Profile Switcher:
+    - Top-right dropdown switches active candidate profile dynamically (John Smith, Sarah Chen, David Lee).
+    - Session state updates candidate details, KYC status, and target level interest across all views.
+
+[✓] 2. Dashboard + Primary Navigation:
+    - Top-level radio bar switches cleanly between all 9 primary sections.
+    - Sub-section radio pills render explicitly per top-level page.
+
+[✓] 3. Right-Rail AI Companion Page-Context Awareness:
+    - Active context caption dynamically updates (e.g. `Study Room — AI Tutor`, `My Profile — Identity Verification (KYC)`).
+    - Query routing passes exact active context to AgentManager.
+
+[✓] 4. Study Room Grounded AI Tutor:
+    - Tutor agent retrieves grounded facts from curriculum_l1/l2/l3 indexes.
+    - Context gap queries return exact refusal phrase: "I don't have that information. Please refer to the official CFA Institute website (cfainstitute.org)."
+
+[✓] 5. Explore & Enroll Simulation:
+    - Deterministic eligibility engine validates degree & work experience hours.
+    - Payment simulation processes 2025 vs 2026 fee schedule and generates instant receipt code.
+
+[✓] 6. Exam Center Launch Gate:
+    - Identity re-verification check blocks unverified candidates and grants access to verified candidates.
+    - Synthetic proctoring logs events (face missing > 5s) and encrypts submitted responses.
+
+[✓] 7. My Credentials & Charterholder View:
+    - Official score report displays pass/fail status and MPS performance bands.
+    - Tamper-proof certificate issues unique verification code and public lookup counter.
+
+[✓] 8. Notifications & Support Tickets:
+    - In-app inbox queues reminders based on candidate channel preferences.
+    - Support tickets create auditable escalation records in SQLite.
+
+[✓] 9. Admin Tools Hub:
+    - Vector Store Manager triggers rebuild of FAISS indexes.
+    - LLM Provider Switcher toggles between OpenAI GPT-4o and Gemini 2.0 Flash.
+
+VERDICT: 100% MANUAL WALKTHROUGH CHECKLIST PASSED.

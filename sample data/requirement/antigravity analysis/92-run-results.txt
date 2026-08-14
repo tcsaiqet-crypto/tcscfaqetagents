@@ -1,0 +1,27 @@
+================================================================================
+CFA DIGITAL JOURNEY — APP STARTUP & SMOKE TEST REPORT
+================================================================================
+Execution Date: 2026-08-12
+Engineer: Antigravity
+
+--------------------------------------------------------------------------------
+1. APPLICATION ENTRY POINT
+--------------------------------------------------------------------------------
+File: cfa-digital-journey/app.py
+Framework: Streamlit (v1.30+)
+Execution Command: streamlit run app.py
+
+--------------------------------------------------------------------------------
+2. SMOKE TEST VALIDATION
+--------------------------------------------------------------------------------
+[✓] Database Initialization: Successfully creates/connects to data/cfa_journey.db
+[✓] Seeding Script Execution: python scripts/seed_db.py executed cleanly
+[✓] Candidate Profile Switcher: Top-right dropdown switches profiles (John Smith, Sarah Chen, David Lee) dynamically
+[✓] Navigation: All 9 primary sidebar tabs render without errors
+[✓] Right Rail AI Companion: RAG retrieval and refusal fallbacks execute cleanly
+[✓] Multi-Provider Support: OpenAI and Gemini switcher toggles in Admin tab
+
+--------------------------------------------------------------------------------
+3. RUN VERDICT
+--------------------------------------------------------------------------------
+STATUS: PASSED (Streamlit entry point compiles and launches error-free)

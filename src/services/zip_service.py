@@ -20,7 +20,7 @@ class ZipService:
         logger.info(f"Processing ZIP archive upload '{filename}' with ID {upload_id}")
         
         extracted_dir = self.target_dir / upload_id
-        file_metadatas, total_files, total_bytes = validate_and_extract_zip(zip_path, extracted_dir)
+        file_metadatas, total_files, total_bytes, excluded_files = validate_and_extract_zip(zip_path, extracted_dir)
 
         doc_files: List[str] = []
         for file_meta in file_metadatas:
@@ -35,6 +35,8 @@ class ZipService:
             total_size_bytes=total_bytes,
             files=file_metadatas,
             doc_files=doc_files,
+            excluded_file_count=len(excluded_files),
+            excluded_files=excluded_files,
             created_at="2026-08-13T14:00:00Z"
         )
         return manifest

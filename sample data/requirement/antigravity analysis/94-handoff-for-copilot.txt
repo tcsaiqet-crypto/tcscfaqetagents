@@ -1,0 +1,54 @@
+================================================================================
+CFA DIGITAL JOURNEY — HANDOFF DOCUMENTATION FOR COPILOT
+================================================================================
+Handoff Date: 2026-08-12
+Primary Author: Antigravity
+
+--------------------------------------------------------------------------------
+1. REPOSITORY OVERVIEW & ARCHITECTURE
+--------------------------------------------------------------------------------
+Target Path: C:\Users\AkshatSinha\Documents\avd\QET CFA\cfa-digital-journey
+
+The codebase is built on Python, Streamlit, SQLite, FAISS, and CrewAI/LangChain,
+governed strictly by the 16 non-negotiable principles ratified in
+`.specify/memory/constitution.md`.
+
+Key Architectural Rules:
+- All core candidate decisions (KYC approval, eligibility, fee calculations,
+  slot booking, exam launch gates, scoring, certificate issuance) are implemented
+  as pure deterministic functions in `services/`.
+- AI companion agents (Tutor, Planner, Support, Router) in `agents/` and `tools/`
+  narrate and guide, but NEVER mutate business state directly.
+- RAG grounding relies on domain-isolated FAISS indexes in `vector_store/faiss_indexes/`.
+
+--------------------------------------------------------------------------------
+2. HOW TO RUN & VERIFY
+--------------------------------------------------------------------------------
+1. Environment Setup:
+   Ensure `.env` contains valid OpenAI and Gemini API keys.
+2. Run Seed Script:
+   python scripts/seed_db.py
+3. Run Test Suite:
+   python -m pytest tests/
+4. Launch Streamlit Application:
+   streamlit run app.py
+
+--------------------------------------------------------------------------------
+3. PROOF REPORTS LOCATION
+--------------------------------------------------------------------------------
+All proof and verification reports generated during execution are located at:
+C:\Users\AkshatSinha\Documents\avd\QET CFA\requirement\antigravity analysis\
+
+- 10-preflight.txt
+- 20-phase0-proof.txt
+- 30-phase1-proof.txt
+- 40-phase2-proof.txt
+- 50-phase3-proof.txt
+- 60-phase4-proof.txt
+- 70-phase5-proof.txt
+- 80-phase6-proof.txt
+- 90-final-summary.txt
+- 91-test-results.txt
+- 92-run-results.txt
+- 93-open-risks.txt
+- 94-handoff-for-copilot.txt

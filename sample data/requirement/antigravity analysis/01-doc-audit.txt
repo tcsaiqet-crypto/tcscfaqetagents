@@ -1,0 +1,40 @@
+================================================================================
+CFA DIGITAL JOURNEY — DOCUMENT AUDIT
+================================================================================
+Audit Date: 2026-08-12
+Auditor: Antigravity
+
+This document outlines the validation and consistency check of the core project
+documents located in c:\Users\AkshatSinha\Documents\avd\QET CFA\requirement\.
+
+--------------------------------------------------------------------------------
+1. VERIFIED DOCUMENTS
+--------------------------------------------------------------------------------
+- requirement1.txt: Matrix of BR-01 to BR-18 and acceptance criteria (verified).
+- designdoc.txt: System architecture, UI layout, phases, decisions 1-47 (verified).
+- knowledgebase.txt: FAISS split indexes, chunking rules, grounding (verified).
+- agentspec.txt: CrewAI Agent definitions, prompts, pre-prompt schema (verified).
+- datamodel.txt: SQLite schema definitions for 17 tables, seeding specs (verified).
+- uilabelling.txt: Three-tier labelling (System, AI, Hybrid, Curriculum) (verified).
+- sessionlog.txt: Record of discussions and historical log of decisions (verified).
+
+--------------------------------------------------------------------------------
+2. INTEGRITY AND CONSISTENCY MATRIX
+--------------------------------------------------------------------------------
+- UI Tabs & BRs: The 9 tabs map exactly to BR-01 through BR-15.
+- Cross-Cutting Concerns: BR-16 (Accessibility), BR-17 (Privacy/Security), and
+  BR-18 (Reliability) map to constitution principles and Admin Tools Hub.
+- Data Layer & Services: datamodel.txt table count matches designdoc.txt
+  assumptions. sqlite database data/cfa_journey.db will be accessed via a
+  strictly typed services/ layer.
+- Agent Access Control: agent permissions match vector store split domains
+  (e.g., Tutor only curriculum_l*, Support only faq_support + policies_fees).
+- Study Plan Update Logic: Study plan modifications support both drag-drop and
+  chat interfaces, governed by a "last action wins" policy writing to the
+  study_plans SQLite table.
+
+--------------------------------------------------------------------------------
+3. VERDICT
+================================================================================
+All primary documents are present, structurally sound, and consistent with the
+required application architecture. No major design collisions detected.

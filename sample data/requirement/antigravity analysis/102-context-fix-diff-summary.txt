@@ -1,0 +1,22 @@
+================================================================================
+CFA DIGITAL JOURNEY — CONTEXT FIX DIFF SUMMARY
+================================================================================
+Date: 2026-08-12
+Engineer: Antigravity
+
+--------------------------------------------------------------------------------
+1. SUMMARY OF CHANGES IN app.py
+--------------------------------------------------------------------------------
+- Introduced `NAV_MAP` dictionary defining all 9 top-level pages and their exact sub-sections.
+- Initialized `st.session_state["nav_main"]` and `st.session_state["nav_sub_<main_tab>"]` explicitly.
+- Replaced `st.tabs()` sequential rendering blocks with explicit `st.radio()` horizontal selectors bound to session state keys.
+- Computed `active_context = f"{clean_main} — {selected_sub}"` deterministically BEFORE executing body rendering and BEFORE executing right-rail AI Companion queries.
+- Ensured right rail title caption dynamically displays current `active_context` string.
+
+--------------------------------------------------------------------------------
+2. ADDED UNIT TEST IN tests/test_agent_context.py
+--------------------------------------------------------------------------------
+- Created unit test suite verifying `AgentManager.route_request()` and `AgentManager.process_query()` for 3+ distinct page context strings:
+  1. `Study Room — AI Tutor` -> routes to `tutor` agent
+  2. `Explore & Enroll — Schedule / Reschedule Exam` -> routes to `support` agent
+  3. `Dashboard — Overview` -> routes to `planner` / `support` agent

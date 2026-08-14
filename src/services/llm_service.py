@@ -1,4 +1,4 @@
-"""Lightweight LLM service wrapper for Gemini and GPT text generation.
+﻿"""Lightweight LLM service wrapper for Gemini and GPT text generation.
 
 Gemini's model catalog changes over time and hardcoded model names can 404
 for a given API key/version, so the active Gemini model is auto-discovered
@@ -33,9 +33,9 @@ class LLMService:
     inspect `last_error` for diagnostics rather than substituting sample data."""
 
     def __init__(self) -> None:
-        self.gemini_model = "gemini-1.5-flash"
+        self.gemini_model = "gemini-3.7-flash"
         self.gpt_model = "gpt-4o-mini"
-        self.timeout_seconds = 20
+        self.timeout_seconds = 30
         self.last_error: Optional[Dict[str, Any]] = None
 
     @staticmethod
@@ -192,7 +192,7 @@ class LLMService:
         """Single-attempt raw call to one Gemini model. Sets `last_error` and returns None on failure."""
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
         payload = {
-            "generationConfig": {"temperature": 0.2, "maxOutputTokens": 900},
+            "generationConfig": {"temperature": 0.2, "maxOutputTokens": 2500},
             "contents": [{"parts": [{"text": prompt}]}],
         }
         try:
@@ -253,7 +253,7 @@ class LLMService:
         payload = {
             "model": self.gpt_model,
             "temperature": 0.2,
-            "max_tokens": 900,
+            "max_tokens": 2500,
             "messages": [
                 {"role": "system", "content": "You are a QA automation engineering assistant."},
                 {"role": "user", "content": prompt},
@@ -314,3 +314,5 @@ class LLMService:
             return data if isinstance(data, dict) else None
         except Exception:
             return None
+
+

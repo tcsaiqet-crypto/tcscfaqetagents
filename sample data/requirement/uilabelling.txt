@@ -1,0 +1,321 @@
+================================================================================
+CFA DIGITAL JOURNEY — UI LABELLING SYSTEM
+================================================================================
+Version: 2.0 FINAL
+Companion to: designdoc.txt
+Purpose: Make every user able to tell at a glance whether a UI element is
+         System (deterministic), AI (advisory), Hybrid, or Curriculum-fixed.
+Implementation target: Streamlit
+Accessibility: WCAG 2.1 AA (BR-16)
+Mobile: OUT OF SCOPE
+================================================================================
+
+1. PURPOSE AND PHILOSOPHY
+--------------------------------------------------------------------------------
+Problem:
+  User sees a score, a plan, or a sentence and cannot tell if a rule or an
+  LLM produced it. For a high-stakes exam product this destroys trust.
+
+Solution:
+  Three-tier labelling applied contextually per page type.
+  Color is NEVER the only signal — always icon + text (+ color).
+
+Principle:
+  - System decisions = fact. Trust fully.
+  - AI output = advisory. Verify.
+  - Hybrid = fact + explanation; only the explanation is advisory.
+  - Eligibility, payment, scoring, KYC, certificate issuance =
+    NEVER AI-tagged because they are NEVER AI-produced.
+
+================================================================================
+
+2. THREE-TIER SYSTEM OVERVIEW
+--------------------------------------------------------------------------------
+Tier 1 — Section Headers
+  Whole page sections labelled [SYSTEM] or [AI INSIGHT] or [HYBRID]
+  Best for: Dashboard, Results, Progress pages
+
+Tier 2 — Inline Tags + Tooltips
+  Element-level badges with hover/help text
+  Best for: Study Plan rows, mixed cards, Learning Hub
+
+Tier 3 — Expandable Source Panel
+  "How was this generated?" panel with model, source, time, disclaimer
+  Nested: full chunks + relevance scores
+  Best for: high-stakes (proctoring flags, readiness, KYC explanation)
+  Default state:
+    High-stakes pages → EXPANDED by default
+    Standard pages    → COLLAPSED by default
+
+Combine tiers as specified per page in Section 5. Do not pick only one tier.
+
+================================================================================
+
+3. TAG TYPES — EXACT TEXT, COLOR, MEANING
+--------------------------------------------------------------------------------
+Tag text                    Color     Meaning
+--------------------------------------------------------------------------------
+[System Verified ✓]         green     Deterministic rule / DB fact. Trust fully.
+[AI Suggested ✨]           purple    LLM-generated. Advisory only.
+[AI + System ◈]             blue      Hybrid: rule decided, AI explained.
+[Curriculum ✓]              grey      Fixed curriculum content, not computed.
+[Not Available]             grey      Section collapsed; no data / no context.
+
+Friendly language LOCKED (not technical "AI Generated" / "System Computed").
+
+Icon always present with text (accessibility).
+Never rely on color alone.
+
+================================================================================
+
+4. DISCLAIMER TEXT TEMPLATES
+--------------------------------------------------------------------------------
+Style EVERYWHERE: very small, grey, italic.
+
+Page-level (optional, only if whole page is AI-heavy):
+  "This page contains AI-generated suggestions. These are advisory only."
+
+Section-level (Q1 = B — per AI section only; LOCKED):
+  "AI suggestion — advisory only. Verify against official CFA materials."
+
+Tooltip-level (hover on [AI Suggested ✨]):
+  "AI Suggested. Based on: {brief driver}. Advisory only."
+
+Expandable panel disclaimer (always last line inside panel):
+  "This output is advisory only and does not replace official CFA Institute
+   guidance, exam rules, or your own judgment."
+
+Empty-context messages (Q2):
+  Variant B (not enough data yet):
+    "Not enough data yet to generate a suggestion."
+  Variant C (profile incomplete):
+    "Complete your profile to get AI recommendations."
+  Choose whichever fits that specific section.
+  Section is COLLAPSED by default; user clicks to expand and see the message.
+
+No-source AI Companion response:
+  Show answer only. Do NOT render an empty sources block.
+
+================================================================================
+
+5. PAGE-BY-PAGE COMPLETE SPEC
+--------------------------------------------------------------------------------
+
+5.1 Dashboard
+  Layout: dual column where useful
+    Left  = YOUR DATA [System Verified ✓]
+    Right = AI INSIGHTS [AI Suggested ✨]
+  Section headers (Tier 1) on every block.
+  Post-charterholder state:
+    Banner "CFA Charterholder 🏆" = System
+    Certificate card = System
+    "Start CPD" = placeholder, grey [Not Available] or plain static note
+  Readiness narrative = AI with expandable (Tier 3) if shown.
+
+5.2 My Profile
+  SYSTEM ONLY. No AI tags on registration, profile fields, KYC status.
+  KYC decision = System Verified.
+  Optional AI explanation of "what KYC means" may appear as separate
+  [AI Suggested ✨] help blurb — never as the status itself.
+
+5.3 Explore & Enroll
+  Program list, fees, windows, eligibility result = System Verified.
+  "Why am I eligible / not eligible" narration = AI + System (hybrid).
+  Payment status, receipt = System only. No AI anywhere on payment path.
+  Scheduling confirmation = System.
+
+5.4 Study Room
+  My Study Plan rows:
+    Curriculum-fixed order items → [Curriculum ✓]
+    AI-proposed order/hours      → [AI Suggested ✨] + tooltip driver
+    User-dragged override         → still show last modifier source in tooltip
+                                   e.g. "Modified by you via drag-drop"
+    Chat-modified                 → "Modified by you via AI Companion"
+  Curriculum Library entries = [Curriculum ✓]
+  AI Tutor answers:
+    Always show source under answer (or View Sources expandable)
+    Tag response [AI Suggested ✨]
+  Mock exam scores / correct counts = [System Verified ✓]
+  Weak-area narrative = [AI Suggested ✨] or [AI + System ◈]
+  Performance breakdown numbers = System; commentary = AI
+
+5.5 AI Tutor (subtab and right-rail when on Study Room)
+  Every answer:
+    Body text
+    [AI Suggested ✨]
+    Sources expandable if RAG hit
+    Disclaimer small grey italic
+  Empty retrieval → I-don't-know phrase (designdoc Section 5)
+
+5.6 Mock Exams
+  Timer: OFF for POC (untimed)
+  Score %, topic breakdown table = System Verified
+  Feedback paragraphs = AI Suggested
+  Weak areas fed to planner = System list of topics + AI narration optional
+
+5.7 Exam Center
+  Launch gate, identity re-check status = System Verified
+  Proctoring flags = Hybrid:
+    Signal/threshold = System
+    Explanation text = AI Suggested
+  Integrity log table = System
+  Expandable panels EXPANDED by default (high stakes)
+
+5.8 My Credentials
+  Pass/fail, score bands, certificate fields = System Verified ONLY
+  No AI tags on credential surfaces
+  Share/verify links = System
+
+5.9 Notifications
+  Inbox items = System (templated)
+  No AI personalization in POC
+
+5.10 Help & Support
+  Chatbot answers = [AI Suggested ✨] + source when from FAQ/policies
+  Ticket status = System
+  FAQ static list = Curriculum/System grey
+
+5.11 Admin
+  All admin controls = System
+  AI Generate profile button output preview = [AI Suggested ✨]
+  Saved profile after approve = System record
+
+================================================================================
+
+6. EXPANDABLE PANEL COMPLETE SPEC (TIER 3)
+--------------------------------------------------------------------------------
+Header label:
+  "How was this generated?"  (collapsed: ▶  expanded: ▼)
+
+Always visible when expanded:
+  - Model used          e.g. GPT-4o | Gemini Flash
+  - Source doc + section
+  - Timestamp
+  - Disclaimer (small grey italic)
+
+Nested expandable "See full context":
+  - Retrieved chunks (text snippets)
+  - Relevance scores
+
+Source reference also lives inside this panel (Q19).
+Do not dump raw chunks in the main card body.
+
+Default:
+  High-stakes (Exam Center, KYC explain, readiness score) → expanded
+  Standard → collapsed
+
+Streamlit: st.expander("How was this generated?", expanded=is_high_stakes)
+
+================================================================================
+
+7. STUDY PLAN EDIT CONFLICT RULES
+--------------------------------------------------------------------------------
+LOCKED (Q18 = A): last action wins. No confirmation dialog.
+
+Both drag-drop and chat write the same study_plans row.
+Fields to update on any edit:
+  status, week_number / order, modified_at, modified_by ('drag'|'chat'|'ai'),
+  source ('ai_suggested'|'manual'|'chat')
+
+UI must st.rerun() / fragment refresh immediately after write.
+
+================================================================================
+
+8. AI COMPANION RIGHT RAIL LABELLING
+--------------------------------------------------------------------------------
+Header: always exactly "AI Companion" (never "Tutor Mode" etc.)
+Context switch is internal and invisible.
+
+Each assistant bubble:
+  - Message text
+  - Optional [AI Suggested ✨] micro-tag (subtle)
+  - If sources: "▶ View Sources" expander under bubble
+  - If no sources: nothing extra
+  - No fake source block
+
+On profile switch divider (system UI chrome, not AI):
+  "── Switched to {Name} (Level {N}) ──"
+
+When AI has no context for a page-level panel in main content:
+  Collapse section; on expand show Variant B or C message (Section 4).
+
+================================================================================
+
+9. WHEN AI HAS NO CONTEXT
+--------------------------------------------------------------------------------
+Main content AI sections:
+  default collapsed
+  expand → appropriate empty message (B or C)
+  do not show spinner forever; do not hallucinate filler
+
+Companion:
+  return the standard I-don't-know sentence
+  no sources block
+
+================================================================================
+
+10. STREAMLIT IMPLEMENTATION NOTES
+--------------------------------------------------------------------------------
+Dual column:
+  col_sys, col_ai = st.columns(2)
+
+Tags as markdown badges (example):
+  st.markdown(
+    '<span style="background:#E8F5E9;color:#1B5E20;padding:2px 8px;'
+    'border-radius:12px;font-size:0.75rem;">[System Verified ✓]</span>',
+    unsafe_allow_html=True,
+  )
+  Purple AI:  background #F3E5F5; color #6A1B9A
+  Blue hybrid: background #E3F2FD; color #0D47A1
+  Grey curriculum: background #F5F5F5; color #616161
+
+Disclaimer CSS:
+  st.markdown(
+    '<p style="font-size:0.7rem;color:#9E9E9E;font-style:italic;'
+    'margin-top:0.25rem;">AI suggestion — advisory only. '
+    'Verify against official CFA materials.</p>',
+    unsafe_allow_html=True,
+  )
+
+Tooltip:
+  Prefer st.help("...") on a caption, or HTML title= attribute on badge span.
+  (Hover-only is acceptable — mobile out of scope.)
+
+Expandable:
+  with st.expander("How was this generated?", expanded=high_stakes):
+      st.caption(f"Model: {model}")
+      st.caption(f"Source: {source}")
+      st.caption(f"Generated: {ts}")
+      st.markdown(disclaimer_html, unsafe_allow_html=True)
+      with st.expander("See full context"):
+          for chunk, score in chunks:
+              st.write(chunk)
+              st.caption(f"Relevance: {score:.2f}")
+
+Drag-drop study plan:
+  Use a Streamlit-compatible sort component or numbered move up/down
+  buttons if native DnD unavailable; persist order list in session_state
+  then write SQLite.
+
+Session state keys (minimum):
+  active_profile_id
+  chat_messages (last 8 for prompt)
+  study_plan_order
+  llm_provider  # "openai" | "gemini"
+  high_stakes_page  # bool
+
+================================================================================
+
+11. ACCESSIBILITY NOTES (BR-16)
+--------------------------------------------------------------------------------
+- Color never sole indicator: every tag has icon glyph + text
+- Contrast: green/purple/blue text on light tinted backgrounds must meet AA
+- Expanders keyboard-focusable (Streamlit default)
+- Screen reader: prefer aria-friendly markdown; avoid image-only badges
+- Don't convey pass/fail by color alone — include "Pass"/"Fail" text
+- Focus order: main content then companion rail
+- CPD / unavailable features: clear text, not color-only disable
+
+================================================================================
+END OF UI LABELLING SPEC v2.0
+================================================================================

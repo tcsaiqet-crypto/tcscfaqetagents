@@ -1,0 +1,27 @@
+================================================================================
+CFA DIGITAL JOURNEY — PREFLIGHT VERIFICATION REPORT
+================================================================================
+Preflight Date: 2026-08-12
+Engineer: Antigravity
+
+--------------------------------------------------------------------------------
+1. VERIFIED MANDATORY CONSTANTS & HARD DECISIONS
+--------------------------------------------------------------------------------
+[✓] Workflow Directory: .specify (Canonical)
+[✓] Constitution Path: .specify/memory/constitution.md (Canonical)
+[✓] Frozen Embedding Model: OpenAI text-embedding-3-small
+[✓] Business State Mutation Rule: AI Narrates, Never Decides (Pure Python/SQLite for eligibility, payment, scoring, KYC, certification)
+[✓] Tutor Content Handling: L2/L3 deep content incomplete fallback to cfainstitute.org
+[✓] Proctoring Rule (BR-10): Deterministic synthetic event simulation only
+
+--------------------------------------------------------------------------------
+2. TARGET DIRECTORIES & ENVIRONMENT STAGING
+--------------------------------------------------------------------------------
+- Project Path: C:\Users\AkshatSinha\Documents\avd\QET CFA\cfa-digital-journey
+- Reports Path: C:\Users\AkshatSinha\Documents\avd\QET CFA\requirement\antigravity analysis
+
+--------------------------------------------------------------------------------
+3. PREFLIGHT VERDICT
+--------------------------------------------------------------------------------
+STATUS: PASSED
+Ready to commence Phase 0 through Phase 6 execution.

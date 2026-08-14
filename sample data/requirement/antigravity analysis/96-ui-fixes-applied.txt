@@ -1,0 +1,32 @@
+================================================================================
+CFA DIGITAL JOURNEY — UI FIXES APPLIED REPORT
+================================================================================
+Date: 2026-08-12
+Engineer: Antigravity
+
+--------------------------------------------------------------------------------
+1. SUMMARY OF FIXES IMPLEMENTED IN app.py
+--------------------------------------------------------------------------------
+[FIXED 1] Top-Right Candidate Profile Switcher:
+- Relocated candidate dropdown from sidebar to top-right header column (header_col2).
+- Displays candidate name and active CFA Level interest.
+
+[FIXED 2] Dynamic Page-Context Binding for Right-Rail AI Companion:
+- Bound `active_context` dynamically based on selected tab and subtab.
+- Enables agent router to accurately receive current page context (e.g. 'Study Room — AI Tutor', 'My Profile — Identity Verification (KYC)', etc.).
+
+[FIXED 3] Complete 30+ Subtab IA Restoration Across All 9 Primary Tabs:
+- Dashboard: Overview, My Progress, Upcoming Deadlines
+- My Profile: Register/SSO, Profile & Education, Identity Verification (KYC)
+- Explore & Enroll: Explore Programs, Eligibility Check, Enroll & Pay, Schedule/Reschedule Exam
+- Study Room: My Study Plan, Curriculum Library, AI Tutor, Practice & Mock Exams, Performance Breakdown
+- Exam Center: Exam Day Check-in, Proctoring Session, Integrity Log
+- My Credentials: Score Report, Digital Certificate/Badge, Verify/Share Link
+- Notifications: Inbox, Channel & Frequency Preferences
+- Help & Support: Chat History, My Tickets, FAQ
+- Admin: Content/Curriculum Manager, Vector Store Manager, Question Bank Manager, Notification Templates, Data & DB, Audit & Logs, Accessibility Settings, Profile Generator & Upload
+
+--------------------------------------------------------------------------------
+2. COMPLIANCE & ARCHITECTURE VERDICT
+--------------------------------------------------------------------------------
+All UI elements adhere to WCAG 2.1 AA accessibility guidelines, three-tier UI labelling rules, and locked design document specifications.

@@ -1,4 +1,4 @@
-"""FastAPI Runtime Layer exposing REST API contracts for React frontend with UI hosting."""
+﻿"""FastAPI Runtime Layer exposing REST API contracts for React frontend with UI hosting."""
 
 import shutil
 from pathlib import Path
@@ -61,6 +61,7 @@ class StatusResponse(BaseModel):
     error: Optional[Dict[str, Any]] = None
     intake_manifest: Optional[IntakeManifest] = None
     stage_timestamps: Dict[str, str] = {}
+    launcher_state: Dict[str, Any] = {}
 
 
 class AIProviderConfig(BaseModel):
@@ -199,8 +200,15 @@ async def upload_codebase(run_id: str, file: UploadFile = File(...)):
         shutil.copyfileobj(file.file, buffer)
 
     try:
-        zip_service = ZipService(target_dir=Path("uploads"))
-        manifest = zip_service.process_zip_upload(run_id, zip_path, file.filename)
+      zip_service = ZipService(target_dir=Path("uploads"))
+      zip_result = zip_service.process_zip_upload(run_id, zip_path, file.filename)
+
+      # Support both legacy (manifest only) and enhanced (manifest + summary) service contracts.
+      if isinstance(zip_result, tuple) and len(zip_result) == 2:
+        manifest, zip_processing = zip_result
+      else:
+        manifest = zip_result
+        zip_processing = {"status": "not_available"}
     except Exception as e:
         error_code = "zip_validation_failed" if isinstance(e, SecurityError) else "zip_extraction_failed"
         err = {"error_code": error_code, "error_message": str(e), "diagnostics": {"file": file.filename}}
@@ -212,6 +220,7 @@ async def upload_codebase(run_id: str, file: UploadFile = File(...)):
         manifest.doc_files = list(set(manifest.doc_files + state.intake_manifest.doc_files))
 
     state.intake_manifest = manifest
+    state.launcher_state["zip_processing"] = zip_processing
     save_run_state(state)
     update_run_status(run_id, status="indexing", progress=60.0)
 
@@ -231,7 +240,8 @@ def get_run_status(run_id: str):
         progress=state.progress,
         error=state.last_error,
         intake_manifest=state.intake_manifest,
-        stage_timestamps=state.stage_timestamps
+      stage_timestamps=state.stage_timestamps,
+      launcher_state=state.launcher_state,
     )
 
 
@@ -884,21 +894,21 @@ def serve_vanilla_spa():
         <code id="active-run-id">Initializing...</code>
       </div>
       <div style="display: flex; align-items: center; gap: 0.25rem;">
-        <button id="zoom-out-btn" class="theme-btn" style="padding: 0.5rem 0.75rem;" title="Zoom Out">🔎➖</button>
+        <button id="zoom-out-btn" class="theme-btn" style="padding: 0.5rem 0.75rem;" title="Zoom Out">ðŸ”Žâž–</button>
         <span id="zoom-val" style="font-size: 0.75rem; font-family: monospace; min-width: 2.5rem; text-align: center;">100%</span>
-        <button id="zoom-in-btn" class="theme-btn" style="padding: 0.5rem 0.75rem;" title="Zoom In">🔎➕</button>
+        <button id="zoom-in-btn" class="theme-btn" style="padding: 0.5rem 0.75rem;" title="Zoom In">ðŸ”Žâž•</button>
       </div>
-      <button id="theme-btn" class="theme-btn">☀️ Light</button>
+      <button id="theme-btn" class="theme-btn">â˜€ï¸ Light</button>
       <button id="reset-run-btn" class="theme-btn" style="color:#06b6d4; border-color:transparent;">Reset Run</button>
     </div>
   </header>
 
   <div class="tab-ribbon">
-    <button id="tab-home-btn" class="tab-btn active">🏠 1. Home Upload</button>
-    <button id="tab-understanding-btn" class="tab-btn" disabled>🧠 2. AI Understanding 🔒</button>
-    <button class="tab-btn" disabled>Test Cases 🔒</button>
-    <button class="tab-btn" disabled>Synthetic Data 🔒</button>
-    <button class="tab-btn" disabled>Playwright Scripts 🔒</button>
+    <button id="tab-home-btn" class="tab-btn active">ðŸ  1. Home Upload</button>
+    <button id="tab-understanding-btn" class="tab-btn" disabled>ðŸ§  2. AI Understanding ðŸ”’</button>
+    <button class="tab-btn" disabled>Test Cases ðŸ”’</button>
+    <button class="tab-btn" disabled>Synthetic Data ðŸ”’</button>
+    <button class="tab-btn" disabled>Playwright Scripts ðŸ”’</button>
   </div>
 
   <main>
@@ -950,7 +960,7 @@ def serve_vanilla_spa():
       </div>
 
       <div style="display:flex; justify-content:flex-end;">
-        <button id="proceed-btn" class="btn-primary" disabled>Proceed to Understanding Tab →</button>
+        <button id="proceed-btn" class="btn-primary" disabled>Proceed to Understanding Tab â†’</button>
       </div>
     </section>
 
@@ -965,7 +975,7 @@ def serve_vanilla_spa():
       </div>
 
       <div id="diagnostics-panel" class="diagnostics-box" style="display:none;">
-        <h3 id="diag-title">❌ AI Fail-Fast Execution Error</h3>
+        <h3 id="diag-title">âŒ AI Fail-Fast Execution Error</h3>
         <p>Error Code: <code id="diag-code">unknown_error</code></p>
         <p id="diag-msg">Connection failed.</p>
         <pre id="diag-details">{}</pre>
@@ -1036,9 +1046,9 @@ def serve_vanilla_spa():
     themeBtn.addEventListener('click', () => {
       document.body.classList.toggle('light');
       if (document.body.classList.contains('light')) {
-        themeBtn.innerText = '🌙 Dark';
+        themeBtn.innerText = 'ðŸŒ™ Dark';
       } else {
-        themeBtn.innerText = '☀️ Light';
+        themeBtn.innerText = 'â˜€ï¸ Light';
       }
     });
 
@@ -1103,7 +1113,7 @@ def serve_vanilla_spa():
           // Render Docs list
           const docsList = document.getElementById('doc-files-list');
           if (manifest.doc_files && manifest.doc_files.length > 0) {
-            docsList.innerHTML = manifest.doc_files.map(f => `<div class="file-badge">📄 ${f}</div>`).join('');
+            docsList.innerHTML = manifest.doc_files.map(f => `<div class="file-badge">ðŸ“„ ${f}</div>`).join('');
           } else {
             docsList.innerHTML = '';
           }
@@ -1111,7 +1121,7 @@ def serve_vanilla_spa():
           // Render ZIP status
           const zipList = document.getElementById('zip-files-list');
           if (manifest.total_files > 0) {
-            zipList.innerHTML = `<div class="file-badge" style="border-color:#a78bfa;">📦 ZIP Extracted (${manifest.total_files} files)</div>`;
+            zipList.innerHTML = `<div class="file-badge" style="border-color:#a78bfa;">ðŸ“¦ ZIP Extracted (${manifest.total_files} files)</div>`;
           } else {
             zipList.innerHTML = '';
           }
@@ -1123,11 +1133,11 @@ def serve_vanilla_spa():
           if (isIntakeReady) {
             proceedBtn.removeAttribute('disabled');
             tabBtn.removeAttribute('disabled');
-            tabBtn.innerHTML = '🧠 2. AI Understanding';
+            tabBtn.innerHTML = 'ðŸ§  2. AI Understanding';
           } else {
             proceedBtn.setAttribute('disabled', 'true');
             tabBtn.setAttribute('disabled', 'true');
-            tabBtn.innerHTML = '🧠 2. AI Understanding 🔒';
+            tabBtn.innerHTML = 'ðŸ§  2. AI Understanding ðŸ”’';
           }
         }
       } catch (err) {

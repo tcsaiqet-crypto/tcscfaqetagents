@@ -1,0 +1,239 @@
+================================================================================
+CFA DIGITAL JOURNEY — KNOWLEDGE BASE & FAISS RAG PLAN
+================================================================================
+Version: 2.0 FINAL
+Companion to: designdoc.txt, agentspec.txt
+================================================================================
+
+1. PURPOSE AND RAG ARCHITECTURE OVERVIEW
+--------------------------------------------------------------------------------
+Goal: Ground every CFA-specific chatbot answer in retrieved documents so the
+Tutor and Support agents cannot invent fees, rules, or curriculum facts.
+
+Pipeline:
+  raw markdown (NotebookLM / curated)
+    → clean/split (processed/)
+    → embed with FROZEN embedding model
+    → FAISS index per domain
+    → agent-scoped retriever tool
+    → LLM answers ONLY from returned chunks
+    → cite source; else I-don't-know
+
+================================================================================
+
+2. WHY SPLIT INDEXES (NOT ONE INDEX)
+--------------------------------------------------------------------------------
+FAISS metadata filtering is weak. One giant index risks:
+  Candidate: "What is the Level I fee?"
+  Retriever returns GIPS "investment management fee" chunk
+  → catastrophic wrong answer
+
+Split indexes + agent allow-lists enforce separation:
+  Tutor never sees fee tables
+  Support never teaches full LOS lists as if answering a study question
+    without curriculum index (Support uses faq + policies only)
+
+================================================================================
+
+3. INDEX 1 — curriculum_l1
+--------------------------------------------------------------------------------
+Source: knowledge_base/raw/curriculum_structure.md (Level I sections)
+Also: Ethics/GIPS curriculum terms from glossary that are study content
+
+Contains:
+  - 10 topic areas + exam weight ranges
+  - Study sessions (note: source skips SS 4–6 Economics listing gap)
+  - Readings list with numbers/titles
+  - Learning Modules (newer LM format) where present
+  - Key LOS statements (unaltered from sources)
+
+Chunking:
+  size ≈ 500 tokens, overlap ≈ 50
+  Prefer split on reading / LOS boundaries
+
+Metadata per chunk:
+  level, topic_area, study_session, reading_id, reading_title,
+  los_code (if any), source_file, chunk_id
+
+Agents: Tutor, Planner
+
+================================================================================
+
+4. INDEX 2 — curriculum_l2
+--------------------------------------------------------------------------------
+Source: curriculum_structure.md Level II section
+Status: PARTIAL — topic weights + brief descriptions only
+Flag in product: L2 deep LOS not fully loaded
+
+Chunking: same as L1 where content exists
+Agents: Tutor, Planner (when active profile level = II)
+
+================================================================================
+
+5. INDEX 3 — curriculum_l3
+--------------------------------------------------------------------------------
+Source: curriculum_structure.md Level III section
+Contains: common core weights; pathways Portfolio Management,
+  Private Wealth, Private Markets (~30–35% pathway weight)
+Status: PARTIAL — no full reading/LOS lists
+Agents: Tutor, Planner (level III profiles)
+
+================================================================================
+
+6. INDEX 4 — policies_fees
+--------------------------------------------------------------------------------
+Source: knowledge_base/raw/fees_registration.md (NotebookLM v2 Response 2)
+
+Contains:
+  Fee tables 2025 vs 2026 (USD)
+  Enrollment fee elimination effective 29 Apr 2025 for Feb 2026+
+  Early vs standard registration amounts by level
+  Currency USD; taxes at checkout; deadlines 11:59 PM ET
+  Exam window matrix (L1 4×, L2 3×, L3 2×)
+  Attempt limits: max 2/year, ≥6 months apart, no consecutive windows,
+    lifetime 6 attempts per level
+  Eligibility: bachelor's / final year / 4000 hours over ≥36 months
+  Passport as ID for registration/exam (per sources)
+  Reschedule fee USD 250 within window
+  Deferral policy notes + pass-rate statistics warning
+  Invoice payment deadline rules
+
+Chunking: ≈ 300 tokens (dense facts), overlap 30
+Metadata: doc_type=policy|fee|window|eligibility, effective_year, level
+
+Agents: Support, Planner (read-only explain; never posts payment)
+
+================================================================================
+
+7. INDEX 5 — faq_support
+--------------------------------------------------------------------------------
+Sources:
+  faq_candidates.md          (v2 Response 5)
+  exam_day_rules.md          (v2 Response 3)
+  results_certification.md   (v2 Response 4)
+
+Contains:
+  FAQ categories 1–6 (registration, fees, study, exam day, results, technical)
+  Exam day / Prometric / OPT environmental rules (specialized certs)
+  PSM requirements and non-graded nature
+  Results timelines (~8 weeks L1/L2, ~10 weeks L3)
+  Score report transparency (pass/fail, bands; not raw score)
+  Charter: 4000h/36mo, references, dues $299, badges, pathways
+  Gaps explicitly marked "not found in sources"
+
+Chunking: ≈ 400 tokens; keep Q&A pairs together when possible
+Agents: Support ONLY
+
+================================================================================
+
+8. INDEX 6 — glossary
+--------------------------------------------------------------------------------
+Source: glossary.md (v2 Response 6) + curriculum terms
+Chunking: ≈ 200 tokens — ideally one term per chunk
+Metadata: term, context_tags (registration|curriculum|exam|results)
+Agents: all agents as FALLBACK only (low priority retriever)
+
+Must-include terms (filled from v2 or flagged missing):
+  CFA Charter/Charterholder, Candidate, Levels I–III, Learning Ecosystem,
+  Prometric, PSM, Enrollment Fee, Registration Fee, Early/Standard window,
+  Deferral, Exam Window, CBT, Proctoring/OPT, Testing Accommodation,
+  Score Report, Work Experience Requirement, Professional Reference,
+  Annual Attestation/Dues, GIPS (ethics curriculum), Code of Ethics,
+  LOS, MPS, CBOK, Study Session, Topic Area Weights, Digital Badge,
+  Specialized Pathways, Minimum Passing Score
+
+================================================================================
+
+9. INDEX 7 — question_bank (SYNTHETIC)
+--------------------------------------------------------------------------------
+Source: generated by scripts / Admin Question Bank Manager — NOT NotebookLM
+Schema per item:
+  question_id, level, topic, subtopic, difficulty,
+  question_text, option_a..d, correct_option, explanation, los_reference
+Agents: Planner (weak-area detection support); mock exam service reads SQLite
+  primarily — FAISS optional for "similar question" search
+
+================================================================================
+
+10. INGESTION RULES
+--------------------------------------------------------------------------------
+Splitter: LangChain RecursiveCharacterTextSplitter
+  separators: ["\n## ", "\n### ", "\n\n", "\n", ". ", " "]
+Embedding: OpenAI text-embedding-3-small  (DEFAULT — confirm D12)
+  OR Gemini embedding if user picks B — then freeze that choice
+Build: scripts/build_indexes.py
+  reads knowledge_base/processed/*.md
+  writes vector_store/faiss_indexes/{name}/
+  writes build_meta.json (model name, timestamp, chunk counts)
+Rebuild: Admin → Vector Store Manager → Rebuild
+  OR upload new doc → append/rebuild that domain index only when possible
+
+Never mix GIPS-firm-compliance v1 dumps into policies_fees or faq_support.
+
+================================================================================
+
+11. GROUNDING ENFORCEMENT
+--------------------------------------------------------------------------------
+Retriever returns top_k (default 4) chunks from ALLOWED indexes only.
+Prompt packing order:
+  1) System rules
+  2) Profile + page context
+  3) Retrieved chunks with source labels
+  4) Last 8 messages
+  5) User question
+
+Empty retrieval template:
+  "I don't have that information. Please refer to the official CFA Institute
+   website (cfainstitute.org)."
+
+Citation format in UI:
+  Source: {filename} — {section_or_heading}
+
+"I don't know" UI:
+  Companion: plain text, no sources expander
+  Main panel: collapsed [Not Available] with expand message
+
+================================================================================
+
+12. KNOWLEDGE GAPS IDENTIFIED
+--------------------------------------------------------------------------------
+Gap                              Handling
+--------------------------------------------------------------------------------
+L2/L3 full readings & LOS        Index partial; Tutor must say limited coverage
+Exact approved calculator models Flag not in sources; point to cfainstitute.org
+Exact ID acceptance matrix       Same
+Full accommodation type list     Same
+Specific release hour/timezone   Same
+Refund policy details            Same
+Older vs LM curriculum dual      Both kept in L1 index — good for mixed cohorts
+
+When filling gaps later: add markdown to raw/, rebuild affected index only.
+
+================================================================================
+
+13. FILE LOCATIONS
+--------------------------------------------------------------------------------
+knowledge_base/
+  raw/
+    curriculum_structure.md
+    fees_registration.md
+    exam_day_rules.md
+    results_certification.md
+    faq_candidates.md
+    glossary.md
+  processed/          # cleaned splits optional intermediate
+    curriculum_l1.md
+    curriculum_l2.md
+    curriculum_l3.md
+    policies_fees.md
+    faq_support.md
+    glossary.md
+
+vector_store/faiss_indexes/   # built artifacts (git-ignore heavy binaries)
+
+Windows host mirror:
+  C:\Users\AkshatSinha\Documents\avd\QET CFA\knowledge_base\raw\
+
+================================================================================
+END OF KNOWLEDGE BASE PLAN v2.0
+================================================================================

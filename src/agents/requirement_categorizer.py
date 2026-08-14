@@ -1,7 +1,12 @@
-"""Requirement Categorizer Agent — classifies business and technical requirements into categories."""
+"""Requirement Categorizer Agent - classifies business and technical requirements into categories.
+
+G3 Hardening (Spec-Kit 006): LLM generation now routes through LLMService.generate_with_gemini()
+and LLMService._generate_with_gpt() instead of making raw HTTP calls with a hardcoded model name.
+This ensures model discovery, candidate ranking, and error diagnostics remain consistent with the
+shared LLM service contract used across all other agents.
+"""
 
 import json
-import requests
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Any, Optional, Tuple
@@ -73,89 +78,36 @@ class RequirementCategorizer(BaseAgent):
             f"Gaps: {[g.title for g in und.gaps]}\\n"
         )
 
-        llm_text = ""
+        # G3: Route through LLMService instead of raw inline HTTP calls.
+        # This ensures model discovery, candidate ranking, and timeout/error
+        # diagnostics are handled consistently by the shared LLM service layer.
+        llm_text: Optional[str] = None
         if provider == "gpt":
-            url = "https://api.openai.com/v1/chat/completions"
-            headers = {
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {api_key}"
-            }
-            payload = {
-                "model": self.llm.gpt_model,
-                "temperature": 0.2,
-                "max_tokens": 1200,
-                "messages": [
-                    {"role": "system", "content": "You are a QA automation engineering assistant."},
-                    {"role": "user", "content": prompt}
-                ]
-            }
-            try:
-                res = requests.post(url, json=payload, headers=headers, timeout=self.llm.timeout_seconds)
-                if res.status_code in [401, 403]:
-                    raise AIRequiredFailureException(
-                        error_code="provider_key_missing",
-                        error_message="OpenAI API key validation failed (Status 401/403).",
-                        diagnostics={"status_code": res.status_code}
-                    )
-                elif res.status_code != 200:
-                    raise AIRequiredFailureException(
-                        error_code="provider_disabled",
-                        error_message=f"OpenAI service returned status {res.status_code}.",
-                        diagnostics={"status_code": res.status_code}
-                    )
-                body = res.json()
-                llm_text = body["choices"][0]["message"]["content"].strip()
-            except requests.exceptions.Timeout:
+            llm_text = self.llm._generate_with_gpt(prompt)
+            if llm_text is None:
+                err = self.llm.last_error or {}
+                err_code = err.get("error_code", "provider_disabled")
+                status = err.get("status_code")
+                if status in (401, 403):
+                    err_code = "provider_key_missing"
                 raise AIRequiredFailureException(
-                    error_code="model_timeout",
-                    error_message="OpenAI service request timed out.",
-                    diagnostics={"timeout_seconds": self.llm.timeout_seconds}
-                )
-            except AIRequiredFailureException:
-                raise
-            except Exception as e:
-                raise AIRequiredFailureException(
-                    error_code="invalid_model_json",
-                    error_message=f"OpenAI connection error: {str(e)}",
-                    diagnostics={"exception": str(e)}
+                    error_code=err_code,
+                    error_message=err.get("error_message", "OpenAI GPT generation failed."),
+                    diagnostics={**err, "provider": "gpt"}
                 )
         else:
-            # Gemini Provider
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.llm.gemini_model}:generateContent?key={api_key}"
-            headers = {"Content-Type": "application/json"}
-            payload = {
-                "generationConfig": {"temperature": 0.2, "maxOutputTokens": 1200},
-                "contents": [{"parts": [{"text": prompt}]}]
-            }
-            try:
-                res = requests.post(url, json=payload, headers=headers, timeout=self.llm.timeout_seconds)
-                if res.status_code in [401, 403]:
-                    raise AIRequiredFailureException(
-                        error_code="provider_key_missing",
-                        error_message="Gemini API key authentication failed (Status 401/403).",
-                        diagnostics={"provider": "gemini", "status_code": res.status_code}
-                    )
-                elif res.status_code != 200:
-                    raise AIRequiredFailureException(
-                        error_code="invalid_model_json",
-                        error_message=f"Gemini API returned error status {res.status_code}.",
-                        diagnostics={"status_code": res.status_code}
-                    )
-                body = res.json()
-                llm_text = body["candidates"][0]["content"]["parts"][0]["text"].strip()
-            except requests.exceptions.Timeout:
+            # Gemini: use model-discovery + candidate-ranking path
+            llm_text, attempts = self.llm.generate_with_gemini(prompt, api_key)
+            if llm_text is None:
+                last = attempts[-1] if attempts else {}
+                err_code = last.get("error_code", "model_discovery_failed")
+                status = last.get("status_code")
+                if status in (401, 403):
+                    err_code = "provider_key_missing"
                 raise AIRequiredFailureException(
-                    error_code="model_timeout",
-                    error_message="Gemini request timed out.",
-                    diagnostics={"timeout_seconds": self.llm.timeout_seconds}
-                )
-            except AIRequiredFailureException:
-                raise
-            except Exception as e:
-                raise AIRequiredFailureException(
-                    error_code="invalid_model_json",
-                    error_message=f"Gemini connection error: {str(e)}",
-                    diagnostics={"exception": str(e)}
+                    error_code=err_code,
+                    error_message=last.get("error_message", "Gemini generation failed across all candidate models."),
+                    diagnostics={"provider": "gemini", "attempts": attempts}
                 )
 
         llm_data = self.llm.parse_json_payload(llm_text)

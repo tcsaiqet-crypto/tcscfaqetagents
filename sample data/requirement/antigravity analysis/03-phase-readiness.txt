@@ -1,0 +1,78 @@
+================================================================================
+CFA DIGITAL JOURNEY — PHASE READINESS CHECKLIST
+================================================================================
+Report Date: 2026-08-12
+Reporter: Antigravity
+
+This checklist assesses readiness for each of the 6 development phases based
+on the specification documents and rules.
+
+--------------------------------------------------------------------------------
+PHASE 0: CONSTITUTION & REPO SETUP
+--------------------------------------------------------------------------------
+- Description: Repository layout, .specify/ folder, constitution initialization.
+- Input Files Status:
+  - requirement1.txt, designdoc.txt (Present & Locked)
+  - keys/ folder containing gemini keys.txt and openai keys.txt (Present)
+- Readiness Verdict: READY. Repo structure and canonical constitution are staged.
+
+--------------------------------------------------------------------------------
+PHASE 1: FEATURE 001-ONBOARDING-IDENTITY (BR-01, BR-02)
+--------------------------------------------------------------------------------
+- Description: Registration, profile details, and KYC identity verification.
+- Required Data: 3 candidate profiles.
+- Staged Status:
+  - Candidate 1 (L1), Candidate 2 (L2), Candidate 3 (L3) profiles are defined.
+  - KYC rule conditions (liveness score threshold >= 80%) are defined in designdoc.txt.
+- Readiness Verdict: READY.
+
+--------------------------------------------------------------------------------
+PHASE 2: FEATURE 002-DISCOVERY-ENROLLMENT (BR-03, BR-04, BR-09)
+--------------------------------------------------------------------------------
+- Description: Program discovery, eligibility check, payment, exam slot booking.
+- Required Data: Fee schedule 2025/2026, exam windows, locations.
+- Staged Status:
+  - Fee tables and eligibility criteria are documented in knowledgebase.txt.
+  - Reschedule fee ($250) and attempt policy rules are defined.
+- Readiness Verdict: READY.
+
+--------------------------------------------------------------------------------
+PHASE 3: FEATURE 003-LEARNING-ECOSYSTEM (BR-05, BR-06, BR-07, BR-08, BR-13)
+--------------------------------------------------------------------------------
+- Description: Personalized study path, LMS, AI tutor, mock exams, analytics.
+- Required Data: Curriculum markdown structure, question bank, study plan parameters.
+- Staged Status:
+  - Level I, II, III topic areas, study sessions, readings, and sample LOS are
+    provided in raw formats.
+  - Question bank schema and study plan conflict rules (last action wins) are locked.
+- Readiness Verdict: READY.
+
+--------------------------------------------------------------------------------
+PHASE 4: FEATURE 004-EXAM-DELIVERY (BR-10)
+--------------------------------------------------------------------------------
+- Description: Secure delivery and AI proctoring session check.
+- Required Data: Synthetic proctoring thresholds.
+- Staged Status:
+  - Proctoring thresholds (e.g. face missing >5s, secondary voice detected) are
+    defined in datamodel.txt.
+- Readiness Verdict: READY.
+
+--------------------------------------------------------------------------------
+PHASE 5: FEATURE 005-RESULTS-CREDENTIALING (BR-11, BR-12)
+--------------------------------------------------------------------------------
+- Description: Score reports, digital badges, verification pages.
+- Required Data: Scoring bands, certificate templates.
+- Staged Status:
+  - Certificate and badge fields defined in datamodel.txt.
+  - Verification ID and LinkedIn sharing flows mapped.
+- Readiness Verdict: READY.
+
+--------------------------------------------------------------------------------
+PHASE 6: FEATURE 006-ENGAGEMENT-SUPPORT (BR-14, BR-15)
+--------------------------------------------------------------------------------
+- Description: In-app notification box, AI Support Agent, support ticket lifecycle.
+- Required Data: Notification templates, FAQ data.
+- Staged Status:
+  - Ticket fields, email/SMS preference settings, and Support agent prompt locked.
+  - In-app notification templates mapped.
+- Readiness Verdict: READY.

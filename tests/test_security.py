@@ -32,7 +32,7 @@ def test_valid_zip_extraction(tmp_path: Path) -> None:
         zf.writestr("component.js", "console.log('hello');")
         zf.writestr("docs/readme.md", "# Test Project")
         
-    extracted_files, count, total_bytes = validate_and_extract_zip(zip_path, extract_dir)
+    extracted_files, count, total_bytes, excluded_files = validate_and_extract_zip(zip_path, extract_dir)
     
     assert count == 2
     assert total_bytes > 0

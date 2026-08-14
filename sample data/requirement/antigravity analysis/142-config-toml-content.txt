@@ -1,0 +1,16 @@
+================================================================================
+CFA DIGITAL JOURNEY — STREAMLIT CONFIG.TOML SPECIFICATION
+================================================================================
+File Location: c:\Users\AkshatSinha\Documents\avd\QET CFA\cfa-digital-journey\.streamlit\config.toml
+
+[theme]
+base = "light"
+primaryColor = "#0C7C84"
+backgroundColor = "#F7F9FC"
+secondaryBackgroundColor = "#FFFFFF"
+textColor = "#10233C"
+font = "sans serif"
+
+================================================================================
+END OF CONFIG.TOML CONTENT
+================================================================================
