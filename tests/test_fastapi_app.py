@@ -63,9 +63,12 @@ def test_upload_codebase_zip_validation():
     assert "Only .zip files" in resp.json()["detail"]
 
 
-def test_understanding_ai_failfast_when_no_key():
+def test_understanding_ai_failfast_when_no_key(monkeypatch: pytest.MonkeyPatch):
     run_resp = client.post("/api/v1/runs", json={"project_name": "Failfast Test"})
     run_id = run_resp.json()["run_id"]
+
+    from src.config import config
+    monkeypatch.setattr(type(config), "get_provider_api_key", lambda self, provider: "")
 
     agent = UnderstandingAgent(run_id=run_id)
 
@@ -73,5 +76,5 @@ def test_understanding_ai_failfast_when_no_key():
     with pytest.raises(AIRequiredFailureException) as exc_info:
         agent.run_ai_required(state)
 
-    assert exc_info.value.error_code in ["provider_key_missing", "provider_disabled", "invalid_model_json", "model_timeout", "schema_validation_failed"]
+    assert exc_info.value.error_code == "provider_key_missing"
     assert exc_info.value.diagnostics is not None
