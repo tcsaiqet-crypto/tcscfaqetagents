@@ -1,4 +1,4 @@
-"""Typed Pydantic Contracts and Schemas for QET Agent Accelerator MVP."""
+﻿"""Typed Pydantic Contracts and Schemas for QET Agent Accelerator MVP."""
 
 from enum import Enum
 from typing import Dict, List, Optional, Any
@@ -309,3 +309,11 @@ class AppState(BaseModel):
     status: str = "idle"
     progress: float = 0.0
     last_error: Optional[Dict[str, Any]] = None
+    agent_timeline: List[Dict[str, Any]] = Field(default_factory=list)
+    subagent_timeline: List[Dict[str, Any]] = Field(default_factory=list)
+    active_agent: Optional[str] = None
+    upcoming_agent: Optional[str] = None
+    reset_generation: int = 1
+    upload_summary_left: Optional[Dict[str, Any]] = None
+    upload_summary_right: Optional[Dict[str, Any]] = None
+

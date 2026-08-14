@@ -415,3 +415,28 @@ def test_get_run_report_artifact_endpoint():
     resp_404 = client.get(f"/api/v1/runs/{run_id}/reports/non_existent.pdf")
     assert resp_404.status_code == 404
 
+
+
+
+def test_retry_run_endpoint_clears_downstream():
+    """Verify POST /api/v1/runs/{run_id}/retry clears downstream artifacts and increments reset_generation."""
+    create_resp = client.post("/api/v1/runs", json={"project_name": "Retry Test Run"})
+    assert create_resp.status_code == 200
+    run_id = create_resp.json()["run_id"]
+
+    # 1. Retry Requirement Understanding (Agent 1)
+    retry_resp = client.post(f"/api/v1/runs/{run_id}/retry", json={"target_agent_id": "requirement_understanding"})
+    assert retry_resp.status_code == 200
+    data = retry_resp.json()
+    assert data["reset_generation"] >= 2
+    assert data["state"]["status"] == "idle"
+    assert data["state"]["progress"] == 0.0
+
+    # 2. Retry Document Intake (Agent 2)
+    retry_resp2 = client.post(f"/api/v1/runs/{run_id}/retry", json={"target_agent_id": "document_intake"})
+    assert retry_resp2.status_code == 200
+    assert retry_resp2.json()["state"]["status"] == "uploading"
+
+    # 3. Retry non-existent run returns 404
+    retry_404 = client.post("/api/v1/runs/RUN-NONEXISTENT/retry", json={"target_agent_id": "requirement_understanding"})
+    assert retry_404.status_code == 404

@@ -13,7 +13,7 @@ from pydantic import BaseModel
 
 from schemas.contracts import AppState, ApplicationUnderstanding, IntakeManifest
 from src.config import config
-from src.services.run_state_service import create_run_state, load_run_state, update_run_status, save_run_state, list_saved_runs
+from src.services.run_state_service import create_run_state, load_run_state, update_run_status, save_run_state, list_saved_runs, retry_run
 from src.services.ai_settings_store import load_ai_settings_dict, save_ai_settings_dict
 from src.services.zip_service import ZipService
 from src.agents.understanding_agent import UnderstandingAgent, AIRequiredFailureException
@@ -321,6 +321,23 @@ def verify_ai_settings():
         results=results,
     )
 
+
+
+class RetryRunRequest(BaseModel):
+    target_agent_id: str = "requirement_understanding"
+
+
+@app.post("/api/v1/runs/{run_id}/retry")
+def retry_run_endpoint(run_id: str, req: Optional[RetryRunRequest] = None):
+    target = req.target_agent_id if req else "requirement_understanding"
+    state = retry_run(run_id, target)
+    if not state:
+        raise HTTPException(status_code=404, detail="Run ID not found.")
+    return {
+        "run_id": run_id,
+        "reset_generation": getattr(state, "reset_generation", 1) or 1,
+        "state": state
+    }
 
 @app.get("/api/v1/runs", response_model=RunListResponse)
 def list_runs():
@@ -1596,5 +1613,7 @@ def serve_vanilla_spa():
 </body>
 </html>
 """
+
+
 
 

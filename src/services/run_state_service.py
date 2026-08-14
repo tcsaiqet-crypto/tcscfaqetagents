@@ -161,3 +161,57 @@ def list_saved_runs() -> List[Dict[str, Any]]:
     # Sort descending by updated_at or created_at
     runs.sort(key=lambda r: r.get("updated_at") or r.get("created_at") or "", reverse=True)
     return runs
+
+
+def retry_run(run_id: str, target_agent_id: str = "requirement_understanding") -> Optional[AppState]:
+    """Invalidate downstream state and reset run back to the specified target agent."""
+    state = load_run_state(run_id)
+    if not state:
+        return None
+
+    state.reset_generation = (getattr(state, "reset_generation", 1) or 1) + 1
+    now_iso = datetime.now(timezone.utc).isoformat()
+
+    if target_agent_id in ("requirement_understanding", "1"):
+        state.status = "idle"
+        state.progress = 0.0
+        state.intake_manifest = None
+        state.understanding = None
+        state.test_suite = None
+        state.synthetic_dataset = None
+        state.playwright_scripts = []
+        state.latest_report = None
+        state.last_error = None
+        state.active_agent = "Requirement Understanding Agent"
+        state.upcoming_agent = "Document Intake Agent"
+        state.stage_timestamps = {"created_at": now_iso, "retry_requirement_understanding": now_iso}
+    elif target_agent_id in ("document_intake", "2"):
+        state.status = "uploading"
+        state.progress = 16.6
+        if state.intake_manifest:
+            state.intake_manifest.total_files = 0
+            state.intake_manifest.files = []
+        state.understanding = None
+        state.test_suite = None
+        state.synthetic_dataset = None
+        state.playwright_scripts = []
+        state.latest_report = None
+        state.last_error = None
+        state.active_agent = "Document Intake Agent"
+        state.upcoming_agent = "Application Understanding Agent"
+        state.stage_timestamps["retry_document_intake"] = now_iso
+    elif target_agent_id in ("application_understanding", "3"):
+        state.status = "indexing"
+        state.progress = 50.0
+        state.understanding = None
+        state.test_suite = None
+        state.synthetic_dataset = None
+        state.playwright_scripts = []
+        state.latest_report = None
+        state.last_error = None
+        state.active_agent = "Application Understanding Agent"
+        state.upcoming_agent = None
+        state.stage_timestamps["retry_application_understanding"] = now_iso
+
+    save_run_state(state)
+    return state
