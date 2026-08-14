@@ -1,6 +1,7 @@
 ﻿"""Tests for FastAPI Runtime Layer, state persistence, and failfast AI understanding."""
 
 import io
+from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
@@ -390,3 +391,27 @@ def test_get_nonexistent_run_returns_404():
     """Verify GET /api/v1/runs/nonexistent returns 404."""
     resp = client.get("/api/v1/runs/RUN-NONEXISTENT-999999")
     assert resp.status_code == 404
+
+
+def test_get_run_report_artifact_endpoint():
+    """Verify GET /api/v1/runs/{run_id}/reports/{filename} serves per-run report artifacts."""
+    create_resp = client.post("/api/v1/runs", json={"project_name": "Report Test Run"})
+    assert create_resp.status_code == 200
+    run_id = create_resp.json()["run_id"]
+
+    # Write a test quality_report.html
+    report_dir = Path("uploads") / run_id / "artifacts"
+    report_dir.mkdir(parents=True, exist_ok=True)
+    html_file = report_dir / "quality_report.html"
+    html_file.write_text("<html><body><h1>Quality Test Report</h1></body></html>", encoding="utf-8")
+
+    # Fetch report
+    resp = client.get(f"/api/v1/runs/{run_id}/reports/quality_report.html")
+    assert resp.status_code == 200
+    assert "text/html" in resp.headers.get("content-type", "")
+    assert "Quality Test Report" in resp.text
+
+    # Check non-existent report
+    resp_404 = client.get(f"/api/v1/runs/{run_id}/reports/non_existent.pdf")
+    assert resp_404.status_code == 404
+
