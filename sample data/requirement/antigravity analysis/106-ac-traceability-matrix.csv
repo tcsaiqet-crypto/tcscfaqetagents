@@ -1,0 +1,30 @@
+BR ID,Feature Spec,Scenario / Acceptance Criteria,AC Tag,Covering Test File,Covering Test Function,Coverage Status
+BR-01,001-onboarding-identity,Candidate Registration & Email Uniqueness,[Static],tests/test_onboarding_kyc.py,test_candidate_registration,Covered by test
+BR-01,001-onboarding-identity,Duplicate Email Registration Handling,[Static],tests/test_onboarding_kyc.py,test_duplicate_registration_fails,Covered by test
+BR-01,001-onboarding-identity,Profile Update & Completeness Score,[Static],tests/test_onboarding_kyc.py,test_profile_update_and_completeness,Covered by test
+BR-02,001-onboarding-identity,KYC Identity Auto-Approval (Liveness >= 80%),[Static],tests/test_onboarding_kyc.py,test_kyc_auto_approval,Covered by test
+BR-02,001-onboarding-identity,KYC Manual Review Routing (Liveness < 80% / Expired),[Static],tests/test_onboarding_kyc.py,test_kyc_manual_review_routing,Covered by test
+BR-03,002-discovery-enrollment,Program Browsing & Prerequisite Validation,[Static],tests/test_discovery_enrollment.py,test_eligibility_evaluation,Covered by test
+BR-03,002-discovery-enrollment,Bachelor Degree & Work Hours Eligibility Engine,[Static],tests/test_discovery_enrollment.py,test_eligibility_evaluation,Covered by test
+BR-04,002-discovery-enrollment,Fee Calculation (2025 vs 2026 Schedule),[Static],tests/test_discovery_enrollment.py,test_fee_calculations,Covered by test
+BR-04,002-discovery-enrollment,PCI Mock Gateway Payment & Instant Receipt,[Static],tests/test_discovery_enrollment.py,test_payment_processing,Covered by test
+BR-09,002-discovery-enrollment,Exam Slot Booking & Confirmation Code,[Static],tests/test_discovery_enrollment.py,test_exam_slot_booking_and_reschedule,Covered by test
+BR-09,002-discovery-enrollment,Slot Rescheduling Fee ($250 USD),[Static],tests/test_discovery_enrollment.py,test_exam_slot_booking_and_reschedule,Covered by test
+BR-05,003-learning-ecosystem,Adaptive Study Schedule & Reordering (Last Action Wins),[Hybrid],tests/test_learning_ecosystem.py,test_study_plan_generation_and_conflict_resolution,Covered by test
+BR-06,003-learning-ecosystem,LMS Reading Progress & Time Tracking,[Static],tests/test_learning_ecosystem.py,test_lms_reading_progress,Covered by test
+BR-07,003-learning-ecosystem,FAISS Index Builder & RAG Grounded Retrieval,[AI-Required],tests/test_learning_ecosystem.py,test_faiss_builder_and_grounded_retrieval,Covered by test
+BR-07,003-learning-ecosystem,RAG Refusal Guidance on Context Gap,[AI-Required],tests/test_learning_ecosystem.py,test_faiss_builder_and_grounded_retrieval,Covered by test
+BR-08,003-learning-ecosystem,Automated Mock Exam Scoring & Weak Area Detection,[Hybrid],tests/test_learning_ecosystem.py,test_mock_exam_scoring_and_weak_areas,Covered by test
+BR-10,004-exam-delivery,Identity Launch Gate Blocking Unverified Candidates,[Static],tests/test_exam_delivery.py,test_launch_gate_unverified_blocked,Covered by test
+BR-10,004-exam-delivery,Identity Launch Gate Verified Launch,[Static],tests/test_exam_delivery.py,test_launch_gate_verified_successful,Covered by test
+BR-10,004-exam-delivery,Synthetic Proctoring Anomaly Logger (Face Missing > 5s),[Hybrid],tests/test_exam_delivery.py,test_proctoring_anomaly_logging,Covered by test
+BR-10,004-exam-delivery,Response Encryption & Submission Blob,[Static],tests/test_exam_delivery.py,test_response_encryption_and_submission,Covered by test
+BR-11,005-results-credentialing,Pass/Fail Result Evaluation & Topic Performance Bands,[Static],tests/test_results_credentialing.py,test_result_publishing_and_score_reporting,Covered by test
+BR-12,005-results-credentialing,Tamper-Proof Certificate & LinkedIn Share Link,[Static],tests/test_results_credentialing.py,test_certificate_issuance_and_public_verification,Covered by test
+BR-12,005-results-credentialing,Public Third-Party Credential Verification Lookup,[Static],tests/test_results_credentialing.py,test_certificate_issuance_and_public_verification,Covered by test
+BR-12,005-results-credentialing,Charterholder Transition State (Pass Levels I, II, III),[Static],tests/test_results_credentialing.py,test_charterholder_transition_check,Covered by test
+BR-14,006-engagement-support,Omni-Channel Notification Queueing & Preference Check,[Static],tests/test_engagement_support.py,test_notification_preferences_and_queueing,Covered by test
+BR-15,006-engagement-support,Support Ticket Creation & Human Escalation,[Hybrid],tests/test_engagement_support.py,test_support_ticket_creation_and_escalation,Covered by test
+BR-16,000-constitution,WCAG 2.1 AA Accessibility & Color Neutrality,[Static],app.py,UI Contrast Controls,Partially covered
+BR-17,000-constitution,Synthetic PII Hygiene & Encryption at Rest,[Static],services/db.py,init_db,Covered by test
+BR-18,000-constitution,System Reliability, LLM Retries & Persistence,[Static],agents/crew_config.py,process_query,Not directly testable in unit tests (manual/integration)

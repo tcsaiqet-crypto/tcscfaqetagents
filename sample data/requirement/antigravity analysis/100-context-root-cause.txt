@@ -1,0 +1,27 @@
+================================================================================
+CFA DIGITAL JOURNEY — AI COMPANION CONTEXT ROOT CAUSE ANALYSIS
+================================================================================
+Analysis Date: 2026-08-12
+Engineer: Antigravity
+
+--------------------------------------------------------------------------------
+1. PROBLEM STATEMENT & ROOT CAUSE IDENTIFICATION
+--------------------------------------------------------------------------------
+In Streamlit, calling `st.tabs()` renders all tab contents sequentially within the Python execution flow on every script rerun.
+
+Previously, `app.py` attempted to track `active_context` by reassigning a scalar Python variable sequentially inside each tab and subtab block (e.g. `active_context = "Study Room — AI Tutor"`).
+
+Because Streamlit executes all `with tab:` blocks during script evaluation, `active_context` was constantly overwritten by whichever tab block executed last (Admin), regardless of which tab the user was actively viewing on the frontend UI.
+
+--------------------------------------------------------------------------------
+2. IMPACT ON RAG & AGENT ROUTING
+--------------------------------------------------------------------------------
+- The right-rail AI Companion received stale or incorrect page context string (e.g., defaulting to 'Admin — Profile Generator' instead of 'Study Room — AI Tutor').
+- This degraded AgentManager route determination, causing queries in Study Room to be misrouted to Support instead of Tutor.
+
+--------------------------------------------------------------------------------
+3. REMEDIATION STRATEGY
+--------------------------------------------------------------------------------
+1. Store top-level navigation (`active_main_tab`) and sub-level navigation (`active_subtab_<tab>`) explicitly in `st.session_state`.
+2. Compute `active_context = f"{st.session_state['active_main_tab']} — {st.session_state['active_subtab']}"` deterministically BEFORE executing UI rendering or right-rail queries.
+3. Use radio / option buttons linked directly to session state for explicit navigation.

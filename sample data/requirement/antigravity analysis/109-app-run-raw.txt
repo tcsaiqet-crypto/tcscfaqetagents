@@ -1,0 +1,22 @@
+================================================================================
+CFA DIGITAL JOURNEY — RAW APP SMOKE TEST REPORT (PORT 8503 RC LOCK)
+================================================================================
+Execution Command: python -m streamlit run app.py --server.headless true --server.port 8503
+Timestamp: 2026-08-12T22:39:30Z
+
+RAW TERMINAL LOG OUTPUT:
+--------------------------------------------------------------------------------
+2026-08-12 22:39:30.353 Uvicorn server started on :::8503
+
+  You can now view your Streamlit app in your browser.
+
+  Local URL: http://localhost:8503
+  Network URL: http://10.73.88.234:8503
+  External URL: http://20.244.46.127:8503
+--------------------------------------------------------------------------------
+
+SUMMARY:
+Startup: SUCCESSFUL
+Error Count: 0
+Crash Count: 0
+Status: PASSED

@@ -1,0 +1,32 @@
+================================================================================
+CFA DIGITAL JOURNEY — INITIAL UI PARITY AUDIT (BEFORE FIXES)
+================================================================================
+Audit Date: 2026-08-12
+Engineer: Antigravity
+
+--------------------------------------------------------------------------------
+1. IDENTIFIED UI GAPS AGAINST LOCKED DESIGN DOC IA
+--------------------------------------------------------------------------------
+[GAP 1] Profile Switcher Position:
+- Previous State: Profile Switcher placed in sidebar.
+- Target Requirement: Must be positioned in top-right header area.
+
+[GAP 2] Right-Rail AI Companion Page Context:
+- Previous State: Hardcoded page context "Dashboard" passed to agent retriever.
+- Target Requirement: Dynamically detect and pass currently selected active tab/subtab context.
+
+[GAP 3] Missing Subtabs across Primary Navigation Tabs:
+- Dashboard: Missing 'My Progress' and 'Upcoming Deadlines' subtabs.
+- My Profile: Missing 'Register/SSO' subtab (had 2 instead of 3 subtabs).
+- Explore & Enroll: Missing 'Explore Programs' subtab (had 3 instead of 4 subtabs).
+- Study Room: Missing 'Curriculum Library' and 'Performance Breakdown' subtabs (had 3 instead of 5 subtabs).
+- Exam Center: Missing explicit subtab structure ('Exam Day Check-in', 'Proctoring Session', 'Integrity Log').
+- My Credentials: Missing explicit subtab structure ('Score Report', 'Digital Certificate/Badge', 'Verify/Share Link').
+- Notifications: Missing explicit subtab structure ('Inbox', 'Channel & Frequency Preferences').
+- Help & Support: Missing 'Chat History' subtab (had 2 instead of 3 subtabs).
+- Admin: Missing full 8-subtab manager breakdown ('Content/Curriculum Manager', 'Vector Store Manager', 'Question Bank Manager', 'Notification Templates', 'Data & DB', 'Audit & Logs', 'Accessibility Settings', 'Profile Generator & Upload').
+
+--------------------------------------------------------------------------------
+2. REMEDIATION PLAN
+--------------------------------------------------------------------------------
+Refactor app.py to implement full 9-tab structure with all 30+ locked subtabs, top-right candidate profile switcher, and dynamic page-context binding for the right-rail AI Companion.

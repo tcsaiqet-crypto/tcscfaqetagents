@@ -1,0 +1,34 @@
+================================================================================
+CFA DIGITAL JOURNEY — DETERMINISTIC CONTEXT FIX DESIGN SPECIFICATION
+================================================================================
+Design Date: 2026-08-12
+Engineer: Antigravity
+
+--------------------------------------------------------------------------------
+1. STATE ARCHITECTURE & NAVIGATION DESIGN
+--------------------------------------------------------------------------------
+We replace implicit variable re-assignment during tab rendering with explicit, session-state-driven state management.
+
+Session State Keys:
+- `st.session_state["nav_main_tab"]`: Stores active top-level menu selection (e.g. "🏠 Dashboard", "📚 Study Room", etc.)
+- `st.session_state["nav_subtab_<tab_key>"]`: Stores active sub-section selection per top-level page.
+
+Context Derivation Equation:
+`active_context = f"{clean_main_tab} — {clean_subtab}"`
+
+Execution Order in app.py:
+1. Initialize navigation session state variables.
+2. Render Top Header & Candidate Profile Switcher.
+3. Render Top-Level Navigation Radio / Option Bar.
+4. Read active top-level selection and render sub-level selection radio / pills.
+5. Calculate `active_context` BEFORE rendering main content and right-rail AI Companion.
+6. Render selected view content strictly matching `(main_tab, subtab)`.
+7. Pass exact `active_context` to `AgentManager().process_query()`.
+
+--------------------------------------------------------------------------------
+2. INTEGRATION TESTING PLAN
+--------------------------------------------------------------------------------
+Add `tests/test_agent_context.py` to verify:
+- `AgentManager().route_request("Study Room — AI Tutor", "Explain FSA ratios")` -> routes to `tutor`.
+- `AgentManager().route_request("Explore & Enroll — Schedule / Reschedule Exam", "How do I reschedule?")` -> routes to `support`.
+- `AgentManager().route_request("Dashboard — Overview", "Help me build a study plan")` -> routes to `planner`.

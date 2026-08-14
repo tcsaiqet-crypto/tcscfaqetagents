@@ -8,6 +8,23 @@ from typing import List, Tuple
 from src.config import config
 from src.models.schemas import FileMetadata
 
+# Extensions that the AI Understanding agent reads (source-code reviewed)
+_AI_REVIEWED_EXTENSIONS = frozenset({
+    ".html", ".js", ".jsx", ".ts", ".tsx", ".py",
+    ".json", ".md", ".txt", ".css", ".scss", ".vue",
+    ".yaml", ".yml", ".toml", ".xml", ".env",
+})
+
+# Extensions that are binary assets — extracted but not AI-reviewed
+_BINARY_EXTENSIONS = frozenset({
+    ".png", ".jpg", ".jpeg", ".gif", ".ico", ".svg",
+    ".woff", ".woff2", ".ttf", ".eot", ".otf",
+    ".pdf", ".zip", ".tar", ".gz", ".rar",
+    ".mp4", ".mp3", ".wav", ".ogg",
+    ".exe", ".dll", ".so", ".dylib",
+    ".lock", ".map",
+})
+
 
 class SecurityError(ValueError):
     """Custom exception raised when security validation fails."""
@@ -25,12 +42,14 @@ def is_safe_path(base_dir: Path, target_path: Path) -> bool:
         return False
 
 
-def validate_and_extract_zip(zip_path: Path, target_dir: Path) -> Tuple[List[FileMetadata], int, int]:
+def validate_and_extract_zip(zip_path: Path, target_dir: Path) -> Tuple[List[FileMetadata], int, int, List[str]]:
     """
     Safely extract ZIP archive enforcing limits and path traversal checks.
     
     Returns:
-        Tuple[List[FileMetadata], total_file_count, total_bytes_extracted]
+        Tuple[List[FileMetadata], total_file_count, total_bytes_extracted, excluded_file_paths]
+        where excluded_file_paths contains relative paths of binary/non-source files
+        that were extracted but are not AI-reviewed.
     """
     if not zip_path.exists():
         raise SecurityError(f"ZIP file does not exist at {zip_path}")
@@ -41,6 +60,7 @@ def validate_and_extract_zip(zip_path: Path, target_dir: Path) -> Tuple[List[Fil
     target_dir.mkdir(parents=True, exist_ok=True)
     
     extracted_files: List[FileMetadata] = []
+    excluded_files: List[str] = []  # Binary/non-source files — extracted but not AI-reviewed
     total_files = 0
     total_bytes = 0
 
@@ -98,16 +118,20 @@ def validate_and_extract_zip(zip_path: Path, target_dir: Path) -> Tuple[List[Fil
                 target.write(source.read())
 
             ext = dest_path.suffix.lower()
+            is_binary = ext in _BINARY_EXTENSIONS or (ext and ext not in _AI_REVIEWED_EXTENSIONS)
             extracted_files.append(
                 FileMetadata(
                     rel_path=member.filename,
                     size_bytes=dest_path.stat().st_size,
                     extension=ext,
-                    is_binary=ext in {".png", ".jpg", ".jpeg", ".pdf", ".zip", ".ico", ".woff", ".ttf"}
+                    is_binary=is_binary
                 )
             )
+            # Track non-source/binary files for UI excluded panel
+            if is_binary:
+                excluded_files.append(member.filename)
 
-    return extracted_files, total_files, total_bytes
+    return extracted_files, total_files, total_bytes, excluded_files
 
 
 def sanitize_log_message(msg: str) -> str:

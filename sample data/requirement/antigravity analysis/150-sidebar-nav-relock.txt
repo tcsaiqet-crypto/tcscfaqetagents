@@ -1,0 +1,128 @@
+================================================================================
+CFA DIGITAL JOURNEY — SIDEBAR NAVIGATION REBUILD & BUG FIX REPORT (150-RELOCK)
+================================================================================
+Date: 2026-08-13
+Engineer: Antigravity
+Status: PASS (100% Verified)
+
+--------------------------------------------------------------------------------
+1. ROOT CAUSES IDENTIFIED & STRUCTURAL FIXES APPLIED
+--------------------------------------------------------------------------------
+BUG 1: Toggle Button Rendered as Blank White Square
+- Root Cause: Usage of complex emoji or system-dependent icons that failed font rendering
+  against default Streamlit button styles.
+- Fix: Replaced with standard, universally-supported text glyphs ("«" when expanded, "»"
+  when collapsed). Styled specifically with `.cfa-toggle-btn` rules for crisp dark-background
+  contrast (#94A3B8 resting, #FFFFFF on hover).
+
+BUG 2: Inactive Nav Items Rendered as Blank White Boxes with Invisible Text
+- Root Cause: Over-broad CSS selector `section[data-testid="stSidebar"] * { color: #FFFFFF !important; }`
+  forced white text on Streamlit's native button elements. Since Streamlit defaults to white
+  button backgrounds when theme base is light, white text on white background created blank white
+  boxes with invisible text.
+- Fix: 
+  1. Updated `.streamlit/config.toml` to `base = "dark"` with `backgroundColor = "#0B192C"`
+     and `primaryColor = "#00D2FF"`.
+  2. Removed the blanket `* { color: #FFFFFF !important; }` rule completely.
+  3. Added scoped CSS targeting sidebar buttons specifically:
+     `div[data-testid="stSidebar"] div.stButton > button { background: transparent !important; border: none !important; box-shadow: none !important; color: #C7D3E3 !important; }`
+     This completely removes white background boxes and ensures readable text sitting directly
+     on the navy background (#0B192C).
+
+BUG 3: NameError: name 'width' is not defined (f-string CSS escaping)
+- Root Cause: Single curly braces `{` and `}` inside `st.markdown(f""" <style>...</style> """)`
+  were evaluated by Python as string interpolation expressions.
+- Fix: Escaped all CSS block curly braces as double braces `{{` and `}}` throughout `app.py`.
+
+--------------------------------------------------------------------------------
+2. EXACT CSS & SELECTORS CHANGED
+--------------------------------------------------------------------------------
+Added/updated in app.py's single consolidated stylesheet:
+
+```css
+section[data-testid="stSidebar"] {
+    width: 260px !important;
+    min-width: 260px !important;
+    max-width: 260px !important;
+    background-color: #0B192C !important;
+    border-right: 1px solid #1E293B !important;
+}
+
+.cfa-sidebar-brand {
+    font-size: 0.95rem;
+    font-weight: 800;
+    color: #FFFFFF !important;
+    letter-spacing: -0.01em;
+    padding-top: 4px;
+}
+
+.cfa-sidebar-profile {
+    background: #142843 !important;
+    border-radius: 10px;
+    padding: 10px;
+    margin-bottom: 12px;
+}
+
+.cfa-nav-group-label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: #00D2FF !important;
+    margin-top: 16px;
+    margin-bottom: 6px;
+}
+
+.cfa-nav-item-active {
+    background: rgba(0, 210, 255, 0.10) !important;
+    border-left: 3px solid #00D2FF !important;
+    border-radius: 8px;
+    padding: 8px 10px;
+    margin-bottom: 4px;
+    color: #FFFFFF !important;
+    font-weight: 700;
+    font-size: 0.88rem;
+}
+
+div[data-testid="stSidebar"] div.stButton > button {
+    width: 100%;
+    border-radius: 8px !important;
+    font-weight: 500 !important;
+    font-size: 0.88rem !important;
+    padding: 8px 10px !important;
+    background: transparent !important;
+    color: #C7D3E3 !important;
+    border: none !important;
+    box-shadow: none !important;
+    transition: background 0.15s ease, color 0.15s ease !important;
+    text-align: left !important;
+    margin-bottom: 2px !important;
+}
+div[data-testid="stSidebar"] div.stButton > button:hover {
+    background: rgba(255, 255, 255, 0.06) !important;
+    color: #FFFFFF !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+```
+
+--------------------------------------------------------------------------------
+3. TEST SUITE RERUN OUTPUT
+--------------------------------------------------------------------------------
+Executed: python -m pytest tests/ -q
+
+Output:
+.......................                                                  [100%]
+23 passed in 7.82s
+
+--------------------------------------------------------------------------------
+4. VISUAL QA VERIFICATION CHECKLIST
+--------------------------------------------------------------------------------
+[PASS] Toggle icon is visible (rendering "«" / "»" text glyphs cleanly against #0B192C)
+[PASS] Every inactive nav item shows icon AND readable label text (#C7D3E3), zero white boxes
+[PASS] Active item renders left accent bar (3px solid #00D2FF) + soft tint + bold white text
+[PASS] Hover state on inactive items shows subtle tint (rgba(255,255,255,0.06)), not a full box
+
+================================================================================
+END OF REPORT
+================================================================================

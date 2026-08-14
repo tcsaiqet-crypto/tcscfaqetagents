@@ -1,0 +1,15 @@
+============================= test session starts =============================
+platform win32 -- Python 3.14.7, pytest-9.1.1, pluggy-1.6.0
+rootdir: C:\Users\AkshatSinha\Documents\avd\QET CFA\cfa-digital-journey
+plugins: anyio-4.14.2, langsmith-0.10.18
+collected 23 items
+
+tests\test_agent_context.py .                                            [  4%]
+tests\test_discovery_enrollment.py ....                                  [ 21%]
+tests\test_engagement_support.py ..                                      [ 30%]
+tests\test_exam_delivery.py ....                                         [ 47%]
+tests\test_learning_ecosystem.py ....                                    [ 65%]
+tests\test_onboarding_kyc.py .....                                       [ 86%]
+tests\test_results_credentialing.py ...                                  [100%]
+
+============================= 23 passed in 7.96s ==============================

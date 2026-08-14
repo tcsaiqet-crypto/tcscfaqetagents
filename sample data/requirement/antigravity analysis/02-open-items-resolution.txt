@@ -1,0 +1,38 @@
+================================================================================
+CFA DIGITAL JOURNEY — OPEN ITEMS RESOLUTION
+================================================================================
+Resolution Date: 2026-08-12
+Resolver: Antigravity
+
+This document registers the final resolutions for all pending items and design
+consistency issues in the project specification workspace.
+
+--------------------------------------------------------------------------------
+1. PENDING EMBEDDING MODEL PICK (D12)
+--------------------------------------------------------------------------------
+- Status: RESOLVED AUTOMATICALLY
+- Decision: Use OpenAI "text-embedding-3-small" as the frozen embedding model.
+- Rationale: Stated as recommended default in Section 15 of designdoc.txt and
+  formally adopted under the autonomous developer directives. All FAISS vector
+  store indexing scripts and retrieval utilities will build against this model.
+
+--------------------------------------------------------------------------------
+2. DESIGN CONSISTENCY RESOLUTION (FOLDER STRUCTURE & CONSTITUTION)
+--------------------------------------------------------------------------------
+- Folder Naming Standard: Staging folders and configuration directories will be
+  standardized to ".specify" (not ".speckit") across generated implementation
+  artifacts to prevent directory duplication and maintain clean tool routing.
+- Constitution Canonical Path: Stated duplicate location options between
+  .speckit/memory/constitution.md and .specify/memory/constitution.md are
+  resolved. The canonical source of truth for the living constitution is
+  fixed at:
+    .specify/memory/constitution.md
+- Synchronization: All references to the constitution in plan.md, tasks.md,
+  and spec.md files will point to this canonical path.
+
+--------------------------------------------------------------------------------
+3. ZERO OPEN ITEMS TARGET
+--------------------------------------------------------------------------------
+With the above resolutions implemented, all open items from designdoc.txt are
+now CLOSED. The project state is locked for Phase 0 setup and subsequent feature
+implementations.

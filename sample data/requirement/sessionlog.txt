@@ -1,0 +1,317 @@
+================================================================================
+CFA DIGITAL JOURNEY — COMPLETE SESSION LOG
+================================================================================
+Version: 2.0
+Purpose: Permanent record of discussions, Q&A, NotebookLM work, and decisions
+         so future sessions do not re-debate locked items.
+================================================================================
+
+1. SESSION METADATA
+--------------------------------------------------------------------------------
+Participants: User (Akshat) + Max (design assistant sessions)
+Workspace:    C:\Users\AkshatSinha\Documents\avd\QET CFA
+BRD:          requirement/requirement1.txt (18 BRs)
+Sibling ref:  cfa-onboarding-poc
+Outputs folder: requirement/
+Docs produced:
+  designdoc.txt (v1 early → superseded by v2 comprehensive)
+  uilabelling.txt
+  sessionlog.txt (this file)
+  knowledgebase.txt
+  agentspec.txt
+  datamodel.txt
+  antigravity_prompt.txt
+  analysis chatting with ai.txt (raw chat export)
+
+================================================================================
+
+2. STARTING POINT AND CONTEXT
+--------------------------------------------------------------------------------
+User asked to read requirement folder, discuss approach, where AI is needed,
+planning options, and how to drive Antigravity with Speckit.
+
+BRD covers full CFA candidate lifecycle BR-01..BR-18.
+Sibling POC already used Streamlit + LangGraph + SQLite + Chroma + rules-first.
+
+================================================================================
+
+3. COMPLETE DISCUSSION RECORD
+--------------------------------------------------------------------------------
+
+3.1 Epic grouping
+  A Onboarding & Identity     BR-01,02
+  B Discovery & Enrollment    BR-03,04,09
+  C Learning Ecosystem        BR-05,06,07,08,13
+  D Exam Delivery             BR-10
+  E Results & Credentialing   BR-11,12
+  F Engagement & Support      BR-14,15
+  Cross-cut BR-16/17/18 → constitution
+
+3.2 Navigation options A/B/C
+  A Journey-stage tabs (chosen, humanized names)
+  B Role-based candidate vs admin
+  C Dashboard-first contextual
+  LOCKED: Option A modified —
+    Dashboard, My Profile, Explore & Enroll, Study Room, Exam Center,
+    My Credentials, Notifications, Help & Support, Admin
+    + right-rail AI Companion + top-right profile switcher
+
+3.3 AI classification per BR
+  See designdoc Section 2 table (Static / Hybrid / AI-required).
+  Principle: AI narrates, never decides.
+
+3.4 FastAPI debate
+  FastAPI = transport only, not AI framework.
+  POC: Streamlit calls Python directly → FastAPI DEFERRED.
+  services/ kept free of Streamlit imports for later wrap.
+
+3.5 LangChain vs LangGraph vs CrewAI
+  Layers clarified:
+    LangChain = toolbox (RAG, tools, embeddings)
+    LangGraph = state machine / graph
+    CrewAI = multi-agent specialists
+  LOCKED: CrewAI day-1 for Router/Tutor/Planner/Support
+  LangChain under CrewAI
+  LangGraph not day-1 (optional later for exam-day flow)
+  Do not run two orchestrators on day 1
+
+3.6 FAISS vs Chroma vs Pinecone/Qdrant/Weaviate/pgvector
+  User chose FAISS.
+  Mitigation for weak metadata filter = SPLIT indexes by domain.
+  Accuracy comes from grounding rules, not from DB brand.
+
+3.7 LLM switcher
+  Chat: OpenAI GPT-4o ↔ Gemini via factory + Admin toggle
+  Embeddings: FROZEN (recommended OpenAI text-embedding-3-small)
+  Changing embeddings requires full FAISS rebuild
+
+3.8 Speckit vs freestyle / Jira / paste-PRD
+  Speckit chosen: constitution once, specify→clarify→plan→tasks→implement
+  Required for 18 BRs + grounded chatbot governance
+
+3.9 Chatbot accuracy approach
+  Split FAISS indexes
+  Agent index permissions
+  Context-only answers
+  Cite sources
+  Empty context → I don't know + cfainstitute.org
+  Fees/eligibility/scores in SQLite+Python, not LLM
+
+3.10 UI labelling options 1–6
+  1 Color badges
+  2 Section headers
+  3 Expandable source panel
+  4 Dual column
+  5 Mode toggle
+  6 Inline tag + tooltip
+  LOCKED combination: 2 + 6 + 3 contextually
+  Friendly language; no mobile; per-section disclaimers
+
+3.11 Candidate vs member
+  BRD uses "candidate" throughout.
+  Charterholder transition at BR-12.
+  No separate member portal.
+  Post-cert UI state only (Charterholder banner + CPD placeholder).
+  CPD definition: annual learning hours after charter — OUT OF SCOPE to build.
+
+3.12 Profile generator / switcher / chat storage
+  Generator in Admin: manual OR AI-generate
+  Switcher top-right
+  Chat per profile under logs/chatdata/{user_level}/
+  Last 8 messages prompt window; last 10 visible history
+
+3.13 NotebookLM program
+  6 prompts designed for curriculum, fees, exam day, results, FAQ, glossary
+  v1 results: Prompt 1 good; Prompts 2–6 were GIPS firm-compliance (WRONG)
+  Root cause: wrong sources in NotebookLM
+  Remediation: candidate-facing CFA Institute pages + revised prompts
+  v2 results: usable candidate admin content — documented in knowledgebase.txt
+
+================================================================================
+
+4. ALL Q&A DECISIONS (Q1–Q22)
+--------------------------------------------------------------------------------
+Q1  Disclaimer placement
+    → B Per AI section only
+
+Q2  When AI has no context
+    → Collapse section; on expand show B or C message as relevant
+      B = "Not enough data yet..."
+      C = "Complete your profile..."
+
+Q3  Expandable default on high-stakes
+    → B Expanded by default
+
+Q4  AI Companion label
+    → Always "AI Companion"; any-page ask; can ask about other saved profiles
+      (later refined by Q17)
+
+Q5  Sources in companion
+    → B+C: if sources, View Sources expandable; else response only
+
+Q6  Conversation history length
+    → C Persistent capped — last 10 messages per user
+
+Q7  AI Tutor session memory
+    → C Last 8 messages as context window
+
+Q8  Study plan modification
+    → B and C: drag-drop modern UI AND chatbot edit with live UI update
+
+Q9  Admin user model
+    → A Same login; Admin tab visible (POC)
+
+Q10 Vector Store Manager capability
+    → C View + rebuild + upload new docs
+
+Q11 Mock exam timing
+    → C Untimed for POC
+
+Q12 Digital certificate form
+    → C Badge card + shareable link + verification page
+
+Q13 Notifications simulation
+    → A In-app only
+
+Q14 Post-certification / member state
+    → B Dashboard Charterholder view + certificate + LinkedIn share +
+      verify link + Start CPD placeholder (not built)
+
+Q15 Profile generator type
+    → C Both manual form and AI-generate
+
+Q16 Profile switcher location
+    → B Top-right always-visible dropdown
+
+Q17 AI Companion cross-profile
+    → B Answer ABOUT other profiles; do not switch active profile via chat
+      + pre-prompt so even simple questions get profile/page context
+      + last 8 messages
+
+Q18 Study plan drag vs chat conflict
+    → A Last action wins; do not complicate
+
+Q19 Expandable panel content
+    → Agree A,C,E,F always; B,D nested
+      Sources also inside expandable
+      Disclaimer very small grey italic
+
+Q20 App name
+    → A "CFA Digital Journey" + small italic explanatory subtitle
+
+Q21 Chat on profile switch
+    → C Chat history saved per profile
+      Storage: logs/chatdata/{name_level}/session_*.json
+      UI divider on switch
+
+Q22 Pre-prompt structure
+    → Confirmed structure in designdoc Section 6
+      [SYSTEM CONTEXT] profile + page + last_8
+      [RULES] grounding, no decisions, cite sources, I-don't-know
+
+================================================================================
+
+5. NOTEBOOKLM PROMPTS (ORIGINAL 6 — SUMMARY)
+--------------------------------------------------------------------------------
+Prompt 1 Curriculum structure all levels (topics, sessions, readings, LOS)
+Prompt 2 Fees and registration policy
+Prompt 3 Exam day rules and process
+Prompt 4 Results and certification
+Prompt 5 Candidate FAQ by category
+Prompt 6 Glossary of CFA terms
+
+Revised prompts 2–6 after v1 failure: explicitly "CFA EXAM CANDIDATES not
+GIPS firm compliance" and "facts only; flag not found in sources".
+
+Sources instructed for v2:
+  cfainstitute.org register / exam / fees / results / faq / requirements
+  Candidate handbook pages; calculator/ID/accommodation pages as available
+
+================================================================================
+
+6. NOTEBOOKLM v1 ASSESSMENT
+--------------------------------------------------------------------------------
+Prompt 1: KEEP — Level I detailed; L2/L3 weights; LOS extracts; LM vs Reading
+Prompt 2: REJECT — GIPS fee classifications for investment firms
+Prompt 3: REJECT — GIPS 2010 standards architecture
+Prompt 4: REJECT — GIPS performance results/verification
+Prompt 5: REJECT — GIPS compliance FAQ for firms
+Prompt 6: PARTIAL — GIPS terms useful only as Ethics curriculum content;
+          candidate admin terms missing (LOS, MPS, CBT, etc.)
+
+Danger if used in policies_fees/faq_support:
+  Candidate asks Level I fee → bot answers management fee / carried interest.
+
+================================================================================
+
+7. NOTEBOOKLM v2 RESULTS ASSESSMENT
+--------------------------------------------------------------------------------
+Response 2 fees_registration — USE
+  2025 vs 2026 fee table; enrollment fee $350 → $0 from 29 Apr 2025 for
+  Feb 2026+; early/standard fees; USD only; taxes at checkout; window matrix
+  L1×4 L2×3 L3×2; 6-month gap; max 2/year; 6 attempts/level; eligibility
+  bachelor's or final year or 4000h/36mo; passport ID; reschedule $250;
+  deferral pass-rate warning (~50% first-time vs ~29% deferred)
+
+Response 3 exam_day_rules — USE WITH GAPS FLAGGED
+  Prometric CBT scale; OPT env rules for specialized certificates;
+  PSM requirements; L3 pathways Feb 2025+; accommodation request via tile;
+  many ID/calculator/prohibited-item details NOT in sources → flag
+
+Response 4 results_certification — USE
+  Results ~8 weeks L1/L2, ~10 weeks L3; email + portal; MPS concept;
+  bands not numeric scores; re-attempt rules; 4000h/36mo; references 2or3;
+  dues $299; digital badges; pathway portability (same charter)
+
+Response 5 faq_candidates — USE
+  6 categories: registration, fees, study, exam day, results, technical/OPT
+  Two-step register+schedule; SSO; LES; PSM not graded; 300h study;
+  mock target ~70%; support contacts
+
+Response 6 glossary — USE
+  Program, registration, exam, post-exam, curriculum/GIPS ethics terms
+  Candidate-process terms filled from v2 sources
+
+Prompt 1 remains the curriculum backbone for curriculum_l* indexes.
+
+================================================================================
+
+8. COMPLETE DECISIONS LOG (47)
+--------------------------------------------------------------------------------
+See designdoc.txt Section 11 (D01–D47). All ACCEPTED except D12 embedding
+model pending final A/B confirm.
+
+================================================================================
+
+9. OPEN ITEMS
+--------------------------------------------------------------------------------
+1. Embedding model:
+   A) OpenAI text-embedding-3-small (recommended in designdoc)
+   B) Gemini embedding model
+   Freeze forever after first FAISS build.
+
+No other open design items.
+
+================================================================================
+
+10. NEXT STEPS (ORDERED)
+--------------------------------------------------------------------------------
+1. Confirm embedding model A or B
+2. Save NotebookLM outputs into knowledge_base/raw/ as:
+     curriculum_structure.md
+     fees_registration.md
+     exam_day_rules.md
+     results_certification.md
+     faq_candidates.md
+     glossary.md
+3. Place API keys in keys/ and wire .env (never commit)
+4. Open Antigravity on project root cfa-digital-journey (create if needed)
+5. Attach: designdoc, uilabelling, requirement1, knowledgebase,
+   agentspec, datamodel
+6. Paste antigravity_prompt.txt Section 2
+7. Run Phase 0 only — review constitution before Phase 1 code
+8. Proceed phase-by-phase with Speckit gates
+
+================================================================================
+END OF SESSION LOG v2.0
+================================================================================

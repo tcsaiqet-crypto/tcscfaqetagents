@@ -1,0 +1,174 @@
+================================================================================
+Business Requirements & Acceptance Criteria
+================================================================================
+Document Title: CFA Digital Candidate Journey BRD
+Classification: TCS Confidential
+Scope: End-to-End Digital Candidate Journey for CFA Examination & Learning
+       Ecosystem (Covering the full candidate lifecycle — discovery,
+       enrollment, learning, examination, certification, and continuous
+       engagement)
+
+================================================================================
+Business Requirements Matrix
+================================================================================
+
+Req ID  Business Requirement
+--------------------------------------------------------------------------------
+BR-01   Candidate Registration & Digital Onboarding
+        A prospective candidate must be able to register and onboard onto
+        the CFA platform through a single, guided digital journey.
+        Acceptance Criteria:
+        • Candidate can self-register via web/mobile with email or social/SSO login.
+        • Guided onboarding captures profile, education, and program interest.
+        • Account is created and a personalized dashboard is provisioned within
+          3 seconds of successful sign-up.
+
+BR-02   Identity Verification & KYC
+        Candidate identity must be verified digitally before enrollment and
+        examination to ensure authenticity and compliance.
+        Acceptance Criteria:
+        • Government-ID and biometric/liveness checks are supported.
+        • Verification status is recorded and auditable.
+        • Failed or suspicious verifications are flagged and routed for manual review.
+
+BR-03   Program & Exam Discovery
+        Candidate must be able to explore CFA levels, curriculum, eligibility,
+        and exam windows relevant to their profile.
+        Acceptance Criteria:
+        • System displays Level I/II/III details, prerequisites, and fees.
+        • Eligibility is validated against candidate profile before enrollment.
+        • Available exam windows and locations are shown in real time.
+
+BR-04   Enrollment & Fee Payment
+        Candidate must be able to enroll for an exam level and complete secure
+        fee payment online.
+        Acceptance Criteria:
+        • Multiple payment methods (card, net-banking, wallet) are supported.
+        • Payment is processed via PCI-DSS compliant gateway with instant receipt.
+        • Enrollment is confirmed and reflected in the candidate dashboard on success.
+
+BR-05   AI-Driven Personalized Learning Path
+        The learning ecosystem must generate a tailored study plan based on
+        candidate profile, level, and available study time.
+        Acceptance Criteria:
+        • System recommends a level-appropriate study path mapped to the curriculum.
+        • Plan adapts to target exam date and weekly study capacity.
+        • Each recommendation maps to specific topics/learning outcomes.
+
+BR-06   Digital Learning Content & LMS
+        Candidate must be able to access structured curriculum content, videos,
+        and reading materials within an integrated LMS.
+        Acceptance Criteria:
+        • Curriculum is organized by topic, reading, and learning outcome statement.
+        • Content supports web and mobile with offline access where applicable.
+        • Completion and time-on-content are tracked per candidate.
+
+BR-07   AI Study Assistant / Tutor
+        Candidate must be able to ask questions and receive contextual
+        explanations from an AI tutor during preparation.
+        Acceptance Criteria:
+        • Assistant answers curriculum-based questions with grounded, accurate responses.
+        • Explanations reference the relevant topic/reading.
+        • Candidate can request practice questions or clarifications on demand.
+
+BR-08   Practice Tests & Mock Examinations
+        Candidate must be able to take timed practice tests and full-length mock
+        exams that mirror the real exam.
+        Acceptance Criteria:
+        • Mock exams replicate exam format, timing, and difficulty.
+        • Automated scoring with topic-level performance breakdown is provided.
+        • Weak areas are identified and fed back into the learning path.
+
+BR-09   Exam Slot Scheduling & Booking
+        Candidate must be able to schedule, reschedule, or cancel an exam
+        appointment digitally.
+        Acceptance Criteria:
+        • Real-time availability of dates, centers, and remote slots is shown.
+        • Booking, rescheduling, and cancellation follow policy rules and windows.
+        • Confirmation and calendar reminders are issued automatically.
+
+BR-10   Secure Exam Delivery & Proctoring
+        The examination must be delivered securely with center-based or remote
+        AI-assisted proctoring.
+        Acceptance Criteria:
+        • Exam launches only after identity re-verification.
+        • AI proctoring detects and logs integrity violations in real time.
+        • Exam content and responses are encrypted end to end.
+
+BR-11   Results Processing & Score Reporting
+        Candidate must receive accurate, timely exam results with a clear
+        performance summary.
+        Acceptance Criteria:
+        • Results are published within the committed SLA window.
+        • Score report shows pass/fail and topic-level performance bands.
+        • Results are accessible and downloadable from the dashboard.
+
+BR-12   Digital Certification & Credentialing
+        Successful candidates must receive a verifiable digital certificate/badge
+        upon meeting requirements.
+        Acceptance Criteria:
+        • Tamper-proof, verifiable digital credential is issued automatically.
+        • Credential is shareable to professional networks (e.g., LinkedIn).
+        • Third parties can validate authenticity via a verification link.
+
+BR-13   Progress Tracking & Analytics Dashboard
+        Candidate must be able to monitor learning progress, readiness, and exam
+        outcomes in one place.
+        Acceptance Criteria:
+        • Dashboard shows study progress, mock scores, and readiness indicators.
+        • Analytics highlight strengths, gaps, and recommended next actions.
+        • Data updates in near real-time as the candidate progresses.
+
+BR-14   Notifications & Omni-Channel Communication
+        Candidate must receive timely reminders and updates across the journey
+        via multiple channels.
+        Acceptance Criteria:
+        • Automated reminders for deadlines, exams, and study milestones are sent.
+        • Notifications are delivered via email, SMS, push, and in-app.
+        • Candidate can manage channel and frequency preferences.
+
+BR-15   Support, Helpdesk & Chatbot Assistance
+        Candidate must be able to obtain help across registration, learning, and
+        exam processes.
+        Acceptance Criteria:
+        • AI chatbot resolves common queries and escalates complex ones.
+        • Human support is reachable with full context handover.
+        • Support interactions are logged and tracked to resolution.
+
+BR-16   Accessibility & Inclusion
+        The platform must be accessible to candidates with diverse needs and
+        provide accommodations.
+        Acceptance Criteria:
+        • Interface meets WCAG 2.1 AA accessibility standards.
+        • Exam accommodations (extra time, assistive tech) can be requested and applied.
+        • Content supports multiple languages/locales where applicable.
+
+BR-17   Data Privacy, Security & Compliance
+        Candidate data across the ecosystem must be protected and processed in a
+        compliant manner.
+        Acceptance Criteria:
+        • PII is encrypted in transit and at rest with role-based, audited access.
+        • Processing complies with GDPR and applicable data-protection standards.
+        • Consent and data-retention policies are enforced and traceable.
+
+BR-18   Platform Reliability & Scalability
+        The ecosystem must remain reliable and performant during peak enrollment
+        and exam periods.
+        Acceptance Criteria:
+        • System scales to peak load without degradation of experience.
+        • Uptime meets agreed SLA (e.g., ≥99.9%) with self-healing on transient faults.
+        • Failover and recovery events are logged without candidate-facing disruption.
+
+================================================================================
+Business Outcomes Addressed
+================================================================================
+• Seamless digital candidate experience
+• Higher enrollment & completion rates
+• Improved exam integrity & trust
+• Personalized, outcome-driven learning
+• Faster results & credentialing
+• Scalable, reliable, compliant operations
+
+================================================================================
+END OF BRD
+================================================================================

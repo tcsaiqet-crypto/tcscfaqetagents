@@ -1,0 +1,28 @@
+================================================================================
+CFA DIGITAL JOURNEY — RESIDUAL RISKS & DEFERRED SCOPE
+================================================================================
+Report Date: 2026-08-12
+Engineer: Antigravity
+
+--------------------------------------------------------------------------------
+1. RESIDUAL RISKS & MITIGATIONS
+--------------------------------------------------------------------------------
+1. Level II/III Curriculum Content Depth:
+   - Description: Detailed readings and LOS lists for Level II and Level III are
+     not present in raw source documents.
+   - Mitigation: Handled gracefully via Constitution Principle 8. AI Tutor returns
+     grounded refusal phrase and points to cfainstitute.org when deep Level II/III
+     reading details are queried.
+
+2. Fixed Embedding Model Maintenance:
+   - Description: Changing embedding models in the future will invalidate the built
+     FAISS indexes.
+   - Mitigation: Embedding model is frozen to OpenAI text-embedding-3-small as per D12.
+     Rebuilding is supported via Admin Tools Hub → Vector Store Manager.
+
+--------------------------------------------------------------------------------
+2. DEFERRED SCOPE FOR PRODUCTION PHASE
+--------------------------------------------------------------------------------
+- Real PCI-DSS payment gateway (simulated in POC).
+- Real biometric facial/liveness video stream processing (simulated via thresholding in POC).
+- Real email/SMS gateway delivery (simulated in-app in POC).

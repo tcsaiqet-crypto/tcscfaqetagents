@@ -1,0 +1,22 @@
+================================================================================
+CFA DIGITAL JOURNEY — RAW APP SMOKE TEST REPORT (POST CONTEXT FIX)
+================================================================================
+Execution Command: python -m streamlit run app.py --server.headless true --server.port 8502
+Timestamp: 2026-08-12T22:37:16Z
+
+RAW TERMINAL LOG OUTPUT:
+--------------------------------------------------------------------------------
+2026-08-12 22:37:16.684 Uvicorn server started on :::8502
+
+  You can now view your Streamlit app in your browser.
+
+  Local URL: http://localhost:8502
+  Network URL: http://10.73.88.234:8502
+  External URL: http://20.244.46.127:8502
+--------------------------------------------------------------------------------
+
+SUMMARY:
+Startup: SUCCESSFUL
+Error Count: 0
+Crash Count: 0
+Status: PASSED

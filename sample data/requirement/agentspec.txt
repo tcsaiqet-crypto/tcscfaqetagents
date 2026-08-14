@@ -1,0 +1,298 @@
+================================================================================
+CFA DIGITAL JOURNEY — CREWAI AGENT SPECIFICATION
+================================================================================
+Version: 2.0 FINAL
+Companion to: designdoc.txt, knowledgebase.txt, datamodel.txt
+================================================================================
+
+1. AGENT ARCHITECTURE OVERVIEW
+--------------------------------------------------------------------------------
+4 specialists + routing logic (Router may be a lightweight classifier agent
+or deterministic page→agent map with LLM intent fallback).
+
+Agents:
+  1. Router
+  2. Tutor
+  3. Planner
+  4. Support
+
+CrewAI modes:
+  Sequential  — default for single-intent user messages
+  Hierarchical— optional when manager must delegate multi-part asks
+                ("Am I on track and what should I study this week?")
+                Still: business decisions stay in Python services
+
+Do NOT create 18 agents for 18 BRs.
+
+================================================================================
+
+2. ROUTER AGENT
+--------------------------------------------------------------------------------
+Role:       Request Router
+Goal:       Send each user message to the correct specialist given page + intent
+Backstory:  You classify CFA candidate questions without answering them yourself.
+
+Inputs:  page_context, user_message, active_profile summary
+Output:  {target_agent: tutor|planner|support, intent_label, notes}
+Index access: NONE
+Tools: none (optional: keyword hints)
+
+Decision logic (priority):
+  1. If page = Study Room and message is curriculum Q → Tutor
+  2. If message about study plan / schedule / hours / weak areas → Planner
+  3. If message about fees, registration, exam day, results policy, FAQ → Support
+  4. If page = Help & Support → Support
+  5. If page = Explore & Enroll and policy/fee question → Support
+  6. Default → Support with general+profile context (still RAG-grounded)
+
+Router NEVER answers substance and NEVER writes DB business state.
+
+================================================================================
+
+3. TUTOR AGENT
+--------------------------------------------------------------------------------
+Role:       CFA Curriculum Tutor
+Goal:       Explain curriculum topics with grounded, cited answers
+Backstory:  You are a careful CFA curriculum tutor. You only teach from
+            official curriculum excerpts provided in context. You never
+            invent readings, LOS, or fees.
+
+Tools:
+  - curriculum_retriever (FAISS curriculum_l1/l2/l3 by profile level)
+  - optional glossary_retriever (fallback)
+
+Index access: curriculum_l* only (+ glossary fallback)
+Memory: last 8 messages
+SQLite: read-only profile level to pick index; no writes
+
+Can answer:
+  Topic explanations, LOS clarification, compare concepts inside curriculum,
+  request for practice question → may pull from question bank service via tool
+  if exposed (read-only)
+
+Must refuse / redirect:
+  Fee amounts, eligibility verdicts, pass/fail, KYC, payment, booking changes
+  → "That's handled by the system rules / Support policies. I can explain
+     curriculum only."
+
+Empty context: standard I-don't-know + cfainstitute.org
+Source citation: required on every substantive answer
+
+System prompt (full):
+  """
+  You are the CFA Curriculum Tutor for CFA Digital Journey.
+  Use ONLY the retrieved curriculum context.
+  Cite reading/topic/LOS when possible.
+  If context is missing, say you don't have that information and refer
+  the user to cfainstitute.org.
+  Do not decide eligibility, scores, payments, or KYC.
+  Personalize difficulty using the active profile level and recent messages,
+  but never fabricate facts.
+  """
+
+================================================================================
+
+4. PLANNER AGENT
+--------------------------------------------------------------------------------
+Role:       Study Plan Coach
+Goal:       Propose and adjust study plans mapped to curriculum topics
+Backstory:  You help candidates allocate weeks and hours. Scheduling math
+            is validated by the study_plan_engine service; you narrate and
+            suggest. You do not invent unofficial CFA topics.
+
+Tools:
+  - curriculum_retriever (topic lists/weights)
+  - question_bank_retriever OR sqlite mock score reader
+  - study_plan_service tool (read/write plan rows ONLY via service API)
+
+Index access: curriculum_* + question_bank
+SQLite inputs (via service): exam_date, hours/week, mock scores,
+  completed topics, current plan rows
+
+Output format (structured):
+  weeks: [{week_number, topics[], planned_hours, rationale}]
+  assumptions: [...]
+  sources: [...]
+
+Adaptation rules:
+  - On new mock weak areas → suggest reordering (AI Suggested)
+  - User drag-drop or chat edit → last write wins (service layer)
+  - Never change exam booking or payment
+
+System prompt (full):
+  """
+  You are the Study Planner for CFA Digital Journey.
+  Build level-appropriate plans from curriculum topics and the candidate's
+  exam date and weekly hours.
+  Every topic must exist in the curriculum context.
+  Explain why you ordered topics.
+  Mark suggestions as advisory.
+  Persist changes only through the study_plan_service tool.
+  Do not claim guaranteed pass outcomes.
+  """
+
+================================================================================
+
+5. SUPPORT AGENT
+--------------------------------------------------------------------------------
+Role:       Candidate Support Specialist
+Goal:       Answer operational FAQs from policies and FAQ docs; escalate
+Backstory:  You help with registration, fees, exam day, results policy.
+            You quote policy text and never invent numbers.
+
+Tools:
+  - faq_support_retriever
+  - policies_fees_retriever
+  - glossary_retriever (fallback)
+  - ticket_creator (writes support_tickets via service)
+  - profile_reader (read-only)
+
+Index access: faq_support + policies_fees (+ glossary fallback)
+
+Escalation rules → create ticket when:
+  - User requests human
+  - Payment failure / account lock / data correction
+  - Conflicting policy chunks or missing policy
+  - Accommodation medical documentation handling
+  - Anger/urgency keywords + unresolved after one clarifying turn
+
+System prompt (full):
+  """
+  You are Candidate Support for CFA Digital Journey.
+  Answer ONLY from FAQ and policy context.
+  Quote fee numbers and dates exactly as retrieved.
+  If not in context, say you don't know and refer to cfainstitute.org
+  or offer to open a support ticket.
+  Never mark someone eligible, paid, passed, or KYC-verified.
+  Never modify enrollments or exam slots.
+  """
+
+Human handover:
+  ticket fields: subject, description, priority, candidate_id, page_context
+  UI: ticket id shown; status in Help & Support → My Tickets
+
+================================================================================
+
+6. CREW CONFIGURATION
+--------------------------------------------------------------------------------
+Default call path:
+  user message → inject pre-prompt context → Router → specialist → response
+  → audit_log write → chat session append
+
+Multi-agent sequential example:
+  Task1 Router classify
+  Task2 Specialist answer
+  (optional) Task3 Router polish only if needed — prefer skip to save latency
+
+Hierarchical:
+  Manager (Router) delegates to Planner + Tutor for compound study questions
+  Merge narrations; still one user-visible answer
+
+Profile context injection: always (see Section 7)
+Page context injection: always
+
+================================================================================
+
+7. PRE-PROMPT INJECTION TEMPLATE
+--------------------------------------------------------------------------------
+[SYSTEM CONTEXT]
+Active Profile:
+  id={id}; name={name}; level={level}; exam_date={exam_date};
+  study_hours_week={hours}; mock_scores_summary={summary};
+  kyc_status={kyc}; enrollment_status={enroll}
+Current Page: {page_name}
+Conversation History (oldest→newest, max 8):
+  {role}: {content}
+  ...
+
+[RULES]
+- Answer in context of the active candidate profile.
+- General CFA knowledge → RAG only.
+- Candidate-specific facts → profile/SQLite tools only.
+- Other profiles → informational only; do not switch active profile.
+- Never decide eligibility, payment, scoring, KYC, certificates.
+- Cite sources from retrieved docs.
+- If no context: "I don't have that information. Please refer to the official
+  CFA Institute website (cfainstitute.org)."
+
+[RETRIEVED CONTEXT]
+{chunks_with_source_labels}
+
+[USER MESSAGE]
+{user_text}
+
+================================================================================
+
+8. MEMORY AND SESSION MANAGEMENT
+--------------------------------------------------------------------------------
+In-process: LangChain ConversationBufferWindowMemory(k=8)
+            or equivalent message list splice
+
+Session start: first companion message after login/profile select
+Session end:   logout, profile switch, or midnight roll (optional)
+
+Persistence:
+  SQLite chat_sessions metadata
+  logs/chatdata/{profile_folder}/session_YYYY_MM_DD.json full transcript
+  Help & Support shows last 10 messages from store
+
+Cross-session: load last messages for profile when switcher selects it
+
+================================================================================
+
+9. AUDIT LOGGING
+--------------------------------------------------------------------------------
+Every agent invocation → audit_log row:
+  timestamp, candidate_id, page, agent_used, user_input,
+  context_retrieved (truncated), sources (json), final_response (truncated),
+  model_used, provider, latency_ms, error (nullable)
+
+Also streamlit-side action audit for enrollment/payment/score writes
+(separate action_type values).
+
+================================================================================
+
+10. LLM SWITCHER IMPLEMENTATION
+--------------------------------------------------------------------------------
+Factory pattern in agents/llm_factory.py:
+
+  def get_chat_model(provider: str):
+      if provider == "openai":
+          return ChatOpenAI(model="gpt-4o", api_key=os.getenv("OPENAI_API_KEY"))
+      if provider == "gemini":
+          return ChatGoogleGenerativeAI(model="gemini-2.0-flash",
+                     google_api_key=os.getenv("GOOGLE_API_KEY"))
+      raise ValueError(...)
+
+CrewAI agents receive llm= from factory at call time based on
+st.session_state["llm_provider"] (Admin toggle).
+
+Embeddings: separate frozen factory — NOT tied to chat toggle.
+  OpenAIEmbeddings(model="text-embedding-3-small")  # default
+
+.env:
+  OPENAI_API_KEY=
+  GOOGLE_API_KEY=
+  EMBEDDING_PROVIDER=openai
+  CHAT_PROVIDER_DEFAULT=openai
+
+Keys directory on host:
+  C:\Users\AkshatSinha\Documents\avd\QET CFA\keys
+Load via dotenv; never print keys; gitignore .env and keys/
+
+Admin UI: dropdown OpenAI | Gemini + "Test connection" button
+(simple round-trip prompt "ping" → "pong")
+
+================================================================================
+
+11. ERROR HANDLING
+--------------------------------------------------------------------------------
+LLM timeout/failure: retry up to 3 with exponential backoff; then user-facing
+  "The AI service is temporarily unavailable. Try again or open a ticket."
+Empty retrieval: I-don't-know path (not an error)
+Agent exception: log stack to audit; safe fallback message
+Partial tool failure: degrade gracefully (answer without optional tool)
+
+================================================================================
+END OF AGENT SPEC v2.0
+================================================================================

@@ -40,6 +40,7 @@ class IntakeManifest(BaseModel):
     files: List[FileMetadata] = Field(default_factory=list)
     doc_files: List[str] = Field(default_factory=list)
     excluded_file_count: int = 0
+    excluded_files: List[str] = Field(default_factory=list)  # Paths skipped (dirs, forbidden ext, binary-only)
     created_at: str
 
 

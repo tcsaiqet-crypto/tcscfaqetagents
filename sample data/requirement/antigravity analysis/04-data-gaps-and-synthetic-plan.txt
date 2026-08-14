@@ -1,0 +1,51 @@
+================================================================================
+CFA DIGITAL JOURNEY — DATA GAPS & SYNTHETIC PLAN
+================================================================================
+Report Date: 2026-08-12
+Reporter: Antigravity
+
+This document outlines the identified knowledge gaps in the provided source files
+and details the synthetic data strategy to resolve them.
+
+--------------------------------------------------------------------------------
+1. IDENTIFIED KNOWLEDGE GAPS & SYSTEM MITIGATION
+--------------------------------------------------------------------------------
+- L2/L3 Curriculum Detail:
+  - Gap: Only topic weights and pathway names (Portfolio Management, Private Wealth,
+    Private Markets) are available. Deep reading and LOS lists do not exist.
+  - Mitigation: The Vector Store Manager will seed a structured placeholder file in
+    the curriculum index indicating Level II/III topic weights. If a candidate asks
+    a deep LOS question on Level II/III, the Tutor Agent will retrieve this chunk
+    and respond: "Detailed Level II/III curriculum contents are not fully indexed
+    in this workspace. Please refer to cfainstitute.org."
+- Approved Calculator Models:
+  - Gap: No official approved calculator model list exists in the source files.
+  - Mitigation: The FAQ database and policies index will be seeded with standard
+    synthetic listings: "Texas Instruments BA II Plus" and "Hewlett Packard 12C".
+- Approved ID Document List:
+  - Gap: Explicit matrix of accepted country IDs is missing.
+  - Mitigation: The policies index will state: "A valid, international passport is
+    the only accepted ID for registration and exam entry."
+- Disability Accommodation List:
+  - Gap: No detailed disability accommodation listing.
+  - Mitigation: Seeding options like: "Extra Exam Time (1.5x / 2.0x)", "Visual Assistive
+    Technology", and "Reader/Scribe".
+
+--------------------------------------------------------------------------------
+2. SYNTHETIC DATA GENERATION PLAN
+--------------------------------------------------------------------------------
+A seed script `scripts/seed_db.py` will generate the following synthetic records
+in SQLite:
+- candidates: 3 candidate profiles (John Smith - Level I, Sarah Chen - Level II,
+  David Lee - Level III Private Wealth) and 1 Admin.
+- enrollments: Pre-populated paid and unpaid enrollments.
+- exam_slots: Held/confirmed slots at centers or remote.
+- study_plans: Seeding default topic sequence for Level I based on weight-ordering.
+- content_progress: Seeding mock reading progress records.
+- mock_exams: Score histories ranging from 55% to 78% with seeded weak area lists
+  (e.g., ["Quantitative Methods", "Fixed Income"]).
+- questions: Seeding >=5 mock MCQs per Level I topic.
+- support_tickets: Sample ticket database with "open", "in_progress", and "resolved".
+
+No real PII (names, phone numbers, passport numbers, card details) will be used.
+All records will use standard test email domains (e.g. @example.com).

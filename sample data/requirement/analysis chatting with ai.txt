@@ -1,0 +1,1843 @@
+
+
+
+New Chat
+Leaderboard
+Search
+Today
+lets see the requirement mentioned in the following folder and lets discuss what we can do how we
+
+Get More Done With Agents
+Start evaluating agentic AI on Arena today. Learn more
+
+Try it now
+Hide this
+
+
+akshataditimech@gmail.com
+Terms of Use
+Privacy Policy
+Cookies
+
+Direct
+
+
+Max
+
+muse-spark-1.1
+
+
+Locked everything we discussed and writing it to designdoc.txt now — with UI structure, full tech stack comparison with why/why not, implementation phases, Speckit process, and Antigravity prompt.Design Document has been created and saved to:
+
+C:\Users\AkshatSinha\Documents\avd\QET CFA\requirement\designdoc.txt
+
+Here's what I documented:
+
+1. UI / Navigation — LOCKED as:
+Main Navigation (8+1 Admin): Dashboard, My Profile (BR-01/02), Explore & Enroll (BR-03/04/09), Study Room (BR-05/06/07/08/13), Exam Center (BR-10), My Credentials (BR-11/12), Notifications (BR-14), Help & Support (BR-15), Admin Tools
+Layout: Streamlit st.navigation left sidebar + main content + persistent right-rail AI Companion (context-routed)
+Per-page sub-tabs defined
+2. Tech Stack — Fully Explained:
+Layering clarified:
+
+FastAPI = Transport/API layer → SKIPPED for POC (Streamlit calls Python directly, modules kept FastAPI-ready)
+CrewAI = Orchestration → Multi-agent team (Router, Tutor, Planner, Support)
+LangChain = Toolbox → Loaders, splitters, FAISS, tools (used under CrewAI)
+LangGraph = State machine → Not used Day 1, reserved for Exam Delivery flow later
+Vector DB Comparison:
+
+FAISS (CHOSEN): Fast, local, offline, no server. Cons: Not a real DB, metadata filtering DIY → mitigated via split indexes (curriculum_l1, l2, l3, policies_fees, faq_support, question_bank)
+vs Chroma: has collections/filters, heavier
+vs Pinecone/Qdrant/Weaviate: cloud/production, needs Docker/cost
+vs pgvector: needs Postgres
+LLM Switcher:
+
+UI toggle: OpenAI (GPT-4o) ↔ Gemini. Factory pattern.
+Critical: Embedding model is FROZEN (text-embedding-3-small recommended) — changing it requires rebuilding all FAISS indexes. Chat model can switch freely.
+Final Stack:
+Streamlit + CrewAI + LangChain + FAISS (split) + SQLite + OpenAI/Gemini (toggle) + .env keys from /keys folder
+
+3. Phases:
+001: Onboarding & Identity (BR-01,02)
+002: Discovery & Enrollment (BR-03,04,09)
+003: Learning Ecosystem (BR-05,06,07,08,13) — hardest AI part
+004: Exam Delivery (BR-10)
+005: Results & Credentialing (BR-11,12)
+006: Engagement & Support (BR-14,15)
+Cross-cutting BR-16/17/18 in constitution
+4. Speckit Process:
+Documented exact file structure:
+
+text
+
+.specify/memory/constitution.md
+specs/001-xxx/spec.md
+specs/001-xxx/plan.md
+specs/001-xxx/tasks.md
+And workflow: /speckit-constitution → /speckit-specify → /speckit-clarify → /speckit-plan → /speckit-tasks → /speckit-implement
+
+5. Antigravity Master Prompt:
+Included at end of file — ready to paste. It locks the stack, enforces "AI narrates, never decides", RAG-only grounding, FAISS split indexes, and build order.
+
+6. Chatbot Accuracy Governance:
+Enforced via constitution rule: Tutor only searches curriculum index, Support only FAQ+policies, mandatory source citation, and "No context = I don't know".
+
+Keys: Referenced from C:\Users\AkshatSinha\Documents\avd\QET CFA\keys loaded via .env, never committed.
+
+Want me to now generate the actual constitution.md file content based on this design doc so you can directly start with /speckit-constitution?
+
+deepseek-v4-pro-max
+
+
+I'll create the design document as a plain text file with all decisions locked in. Here is the complete content to save as designdoc.txt in the specified folder. I've structured it so Antigravity can read it as context and follow it precisely.
+
+text
+
+================================================================================
+CFA DIGITAL CANDIDATE JOURNEY – DESIGN DOCUMENT
+================================================================================
+Version: 1.0
+Status: FINAL
+Prepared for: Antigravity + Speckit-driven implementation
+Input file: C:\Users\AkshatSinha\Documents\avd\QET CFA\requirement\requirement1.txt
+API Keys location: C:\Users\AkshatSinha\Documents\avd\QET CFA\keys
+Repository: to be created (suggest `cfa-digital-journey`)
+================================================================================
+
+1. OVERVIEW
+--------------------------------------------------------------------------------
+This document defines the complete design for an end-to-end digital candidate
+journey platform covering CFA program discovery, onboarding, learning, exam
+delivery, results and engagement (BR‑01 to BR‑18).
+
+The implementation will be driven by Speckit methodology inside Antigravity:
+  /speckit-constitution → define once, enforce everywhere
+  /speckit-specify → /speckit-clarify → /speckit-plan → /speckit-tasks → /speckit-implement
+
+All business requirements are taken from requirement1.txt. The platform will be
+a single-repo, multi-feature project, mirroring the proven pattern from the
+sibling project `cfa-onboarding-poc`.
+
+================================================================================
+
+2. UI STRUCTURE (FINAL)
+--------------------------------------------------------------------------------
+Two‑panel layout:
+
+  LEFT SIDEBAR (primary navigation, 9 tabs)
+  RIGHT RAIL (persistent AI Companion chat)
+
+Left sidebar tabs (each with subtabs as needed):
+
+  1. Dashboard
+     - Overview
+     - My Progress
+     - Upcoming Deadlines
+  2. My Profile
+     - Register / SSO
+     - Profile & Education
+     - Identity Verification (KYC)
+  3. Explore & Enroll
+     - Explore Programs
+     - Eligibility Check
+     - Enroll & Pay
+     - Schedule / Reschedule Exam
+  4. Study Room
+     - My Study Plan
+     - Curriculum Library
+     - AI Tutor
+     - Practice & Mock Exams
+     - Performance Breakdown
+  5. Exam Center
+     - Exam Day Check‑in
+     - Proctoring Session
+     - Integrity Log
+  6. My Credentials
+     - Score Report
+     - Digital Certificate / Badge
+     - Verify / Share Link
+  7. Notifications
+     - Inbox
+     - Channel & Frequency Preferences
+  8. Help & Support
+     - Chat History
+     - My Tickets (escalated)
+     - FAQ
+  9. Admin (Tools Hub)
+     - Content / Curriculum Manager
+     - Vector Store Manager
+     - Question Bank Manager
+     - Notification Templates
+     - Data & DB (seed/reset)
+     - Audit & Logs
+     - Accessibility Settings
+
+Right rail AI Companion:
+  - Present on every page.
+  - Context‑routed:
+      * Study Room  → Curriculum Tutor (RAG over curriculum indexes)
+      * Explore & Enroll → Eligibility/Fees/Scheduling helper
+      * Help & Support → Helpdesk / escalation assistant
+      * Other pages → General assistant with limited knowledge base
+  - Always shows source references.
+  - NEVER makes business decisions (eligibility, payment, scoring, KYC).
+
+Mapping to BRs:
+  BR‑01, BR‑02 → My Profile
+  BR‑03, BR‑04, BR‑09 → Explore & Enroll
+  BR‑05, BR‑06, BR‑07, BR‑08, BR‑13 → Study Room + Dashboard
+  BR‑10 → Exam Center
+  BR‑11, BR‑12 → My Credentials
+  BR‑14 → Notifications
+  BR‑15 → Help & Support
+  BR‑16, BR‑17, BR‑18 → Constitution principles + Admin surfaces
+
+================================================================================
+
+3. TECH STACK (FINAL)
+--------------------------------------------------------------------------------
+| Layer                 | Choice                     | Rationale |
+|-----------------------|----------------------------|-----------|
+| Frontend / UI         | Streamlit                  | Fast POC, matches sibling project, one process |
+| Backend API           | None (Python modules)      | No external consumers yet; modules designed for later FastAPI wrap |
+| Agent Orchestration   | CrewAI (multi‑agent)       | Natural fit for specialist agents (tutor, planner, support), user‑requested |
+| LLM Chat Models       | OpenAI GPT‑4o / Gemini     | Both supported via switcher; user provides keys |
+| Embedding Model       | OpenAI text‑embedding‑3‑small | Fixed; do NOT switch after indexes built. If user prefers Gemini only, change before build. |
+| RAG Tooling           | LangChain (loaders, splitters, FAISS) | Industry standard, used under CrewAI |
+| Vector Store          | FAISS (multiple indexes)   | User‑requested, local, offline; split by domain to avoid contamination |
+| Business Data         | SQLite                     | Lightweight, persistent, offline, matches POC |
+| Auth (POC)            | Streamlit session_state    | Simple; production auth out of scope |
+| Deployment            | Local / Docker             | For demo and testing |
+
+API Keys:
+  - Stored in C:\Users\AkshatSinha\Documents\avd\QET CFA\keys
+  - Loaded via .env (python‑dotenv), never committed to git
+  - Chat provider selectable at runtime via Admin Settings
+  - Embedding provider fixed as above (rebuild indexes if changed)
+
+================================================================================
+
+4. VECTOR STORE PLAN (FAISS SPLIT INDEXES)
+--------------------------------------------------------------------------------
+Because FAISS has weak metadata filtering, we create SEPARATE indexes per domain:
+
+  faiss_indexes/
+    curriculum_l1/
+    curriculum_l2/
+    curriculum_l3/
+    policies_fees/
+    faq_support/
+    question_bank/
+
+Agents have strict index permissions:
+  Tutor agent       → curriculum_l* only
+  Planner agent     → curriculum_l* (for topic mapping) + SQLite
+  Support agent     → faq_support + policies_fees
+  Router agent      → no index (only page context)
+
+This ensures no cross‑contamination (e.g. tutor cannot see fee data).
+
+Important: All answers must be grounded in retrieved context. System prompt for each agent:
+  "Answer ONLY from the provided context. If the answer is not in the context,
+   say: 'I don't have that information. Please refer to the official CFA Institute
+   website.' Always cite the source document/section used."
+
+================================================================================
+
+5. IMPLEMENTATION PHASES (BRD ORDER)
+--------------------------------------------------------------------------------
+Phase 0  : Constitution & Repo Setup
+Phase 1  : Feature 001 – Onboarding & Identity  (BR‑01, BR‑02)
+Phase 2  : Feature 002 – Discovery & Enrollment (BR‑03, BR‑04, BR‑09)
+Phase 3  : Feature 003 – Learning Ecosystem     (BR‑05, BR‑06, BR‑07, BR‑08, BR‑13)
+Phase 4  : Feature 004 – Exam Delivery          (BR‑10)
+Phase 5  : Feature 005 – Results & Credentialing(BR‑11, BR‑12)
+Phase 6  : Feature 006 – Engagement & Support   (BR‑14, BR‑15)
+
+Cross‑cutting BR‑16/17/18 are handled in the constitution (Phase 0) and enforced
+in every feature; they also get concrete UI surfaces in Admin tab.
+
+Each phase follows the same Speckit workflow:
+  1. /speckit-specify  → produces spec.md
+  2. /speckit-clarify  → asks questions; we answer
+  3. /speckit-plan     → technical design, data models, agent definitions
+  4. /speckit-tasks    → numbered task list with dependencies
+  5. /speckit-implement→ code generation task‑by‑task, with review checkpoints
+
+After each phase, all tests pass and the app runs end‑to‑end before moving on.
+
+================================================================================
+
+6. DATA REQUIRED (SYNTHETIC ONLY – NO REAL PII)
+--------------------------------------------------------------------------------
+The following synthetic datasets will be needed. Exact timing flagged per phase:
+
+  Phase 1: Candidate sample profiles (3) with education, program interest, target date.
+  Phase 2: Program/fee/exam window data (CFA Level I/II/III, fees, exam dates,
+           centers/remote slots).
+  Phase 3: Curriculum sample for Level I (topics, readings, LOS statements).
+           Mock exam question bank (MCQs with topic tags, difficulty, correct answers).
+           Study plan templates or parameters (hours/week, date math rules).
+  Phase 4: Proctoring integrity rules (thresholds like "face not detected >5s").
+  Phase 5: Scoring/certification rules (pass mark, topic bands).
+  Phase 6: Notification copy templates (email/SMS/push).
+           FAQ/policy documents for support chatbot (can reuse from cfa‑onboarding‑poc).
+
+All data must be clearly synthetic; no real candidate information.
+
+================================================================================
+
+7. SPECKIT INPUT FILE STRUCTURE (IN REPO)
+--------------------------------------------------------------------------------
+Repository layout (after Phase 0):
+
+  cfa-digital-journey/
+    .env.example
+    requirements.txt
+    README.md
+    app.py                    (Streamlit entry)
+    services/                 (business logic, rules engines)
+    agents/                   (CrewAI agent definitions)
+    tools/                    (LangChain tools, retrievers)
+    vector_store/             (FAISS indexes, build scripts)
+    data/                     (SQLite DB file, synthetic data seed scripts)
+    specs/
+      000-constitution.md
+      001-onboarding-identity/
+          spec.md
+          plan.md
+          tasks.md
+      002-discovery-enrollment/
+          ...
+    .speckit/
+      memory/
+        constitution.md      (the living constitution)
+        decisions.md         (all decisions logged)
+      config.yaml            (speckit settings, if needed)
+
+Constitution content (summary, full version created by /speckit-constitution):
+  - Deterministic rules first: eligibility, payment, scoring, KYC are pure Python.
+  - AI narrates, never decides: agents only explain/adivse, cannot modify business state.
+  - Typed contracts: all modules exposed via clear interfaces; agents use services,
+    not direct DB access.
+  - Auditability: every agent interaction logs user input, retrieved context,
+    final answer, sources. Stored in SQLite.
+  - Reproducibility: seed scripts recreate full DB and indexes from synthetic data.
+  - Offline‑capable: no external service required except LLM API calls.
+  - BR‑16 Accessibility: WCAG 2.1 AA (use Streamlit accessibility features,
+    test with screen readers, provide language toggle later).
+  - BR‑17 Privacy/Security: all PII (even synthetic) encrypted at rest,
+    role‑based access simulated, consent flags stored.
+  - BR‑18 Reliability: clear error handling, retries on LLM calls,
+    state persists across Streamlit reruns.
+
+8. ANTIGRAVITY MASTER PROMPT (PASTE AFTER READING THIS DOC)
+--------------------------------------------------------------------------------
+Copy the following prompt and provide it (with this design doc attached or pasted
+as context) to Antigravity. It will drive the entire implementation.
+
+--- START PROMPT ---
+
+You are implementing "CFA Digital Candidate Journey" based on the attached design
+document `designdoc.txt` and the BRD in `requirement1.txt` (BR‑01 through BR‑18).
+Follow the design doc exactly.
+
+Step 1: Create the project repository `cfa-digital-journey` in the current
+workspace. Use the tech stack specified in Section 3.
+
+Step 2: Run /speckit-constitution with the principles listed in Section 7 of the
+design doc. Save the constitution to .speckit/memory/constitution.md. This
+constitution applies to all future features.
+
+Step 3: For each phase in order (Phase 1 to Phase 6), execute the Speckit
+workflow: /speckit-specify, /speckit-clarify, /speckit-plan, /speckit-tasks,
+/speckit-implement. Do not move to the next phase until the current phase's
+tests pass and the app runs end‑to‑end.
+
+  Phase 1: Feature 001‑onboarding‑identity (BR‑01, BR‑02)
+  Phase 2: Feature 002‑discovery‑enrollment (BR‑03, BR‑04, BR‑09)
+  Phase 3: Feature 003‑learning‑ecosystem (BR‑05, BR‑06, BR‑07, BR‑08, BR‑13)
+  Phase 4: Feature 004‑exam‑delivery (BR‑10)
+  Phase 5: Feature 005‑results‑credentialing (BR‑11, BR‑12)
+  Phase 6: Feature 006‑engagement‑support (BR‑14, BR‑15)
+
+For each feature:
+  - Review the corresponding BRs and write spec.md with acceptance criteria.
+  - Ask clarifying questions (/speckit-clarify) about ambiguous requirements.
+  - Plan the implementation, specifying which modules, agents, DB tables, and
+    FAISS indexes are needed.
+  - Generate tasks in dependency order.
+  - Implement with /speckit-implement, stopping after each task for my review.
+
+Important constraints (from design doc):
+  - Use CrewAI for agents. Define only the 4 agents specified (Router, Tutor,
+    Planner, Support) plus any simple utility agents needed per feature.
+  - Use FAISS with separate indexes per domain (Section 4).
+  - Use OpenAI or Gemini chat models via a provider switcher. Embeddings fixed
+    to OpenAI text-embedding-3-small (unless user explicitly changes).
+  - API keys are in C:\Users\AkshatSinha\Documents\avd\QET CFA\keys. Load from
+    .env, do not print or commit keys.
+  - All business decisions must be deterministic Python logic; agents may only
+    narrate/explain, never modify business state.
+  - Synthetic data only; no real PII.
+  - Accessibility, security, and reliability (BR‑16/17/18) must be considered
+    in every feature.
+
+Start now with Phase 0 (constitution and repo setup). Then proceed to Phase 1's
+/speckit-specify and pause for my review before generating the plan.
+
+--- END PROMPT ---
+
+================================================================================
+END OF DESIGN DOCUMENT
+================================================================================
+Save this content as:
+
+C:\Users\AkshatSinha\Documents\avd\QET CFA\requirement\designdoc.txt
+
+After saving, you can open the document, copy the master prompt, and paste it into Antigravity along with the design doc (or reference its path) to begin the speckit-driven implementation.
+
+
+OK LETS FINALLY DOCUMENT everything we discussed HOW UI WILLL BE THEN DOCUMENT HOW TECH STACK WILL BE AND THEN DOCUMENT PHASES FOR IMPLEMENTATION THEN DOCUMENT HOW WE CAN create specit input files and then we will check the prompt for antigracvity to understand the document
+we will save theh dcoument in following folder with name as designdoc.txt folder name as C:\Users\AkshatSinha\Documents\avd\QET CFA\requirement
+We will document this as design document
+keys are in folder C:\Users\AkshatSinha\Documents\avd\QET CFA\keys
+
+
+
+Max
+
+
+Good question. Let me answer this properly before we go further.
+
+What is Speckit (and what is Antigravity)?
+First, let's be clear on what these things actually are.
+
+text
+
+Antigravity = the AI coding assistant you're using right now
+              (like Cursor / GitHub Copilot but smarter about context)
+
+Speckit     = a METHODOLOGY / WORKFLOW that runs INSIDE Antigravity
+              It is NOT a separate tool or package
+              It is a structured way to go from requirement → code
+Think of it like this:
+
+text
+
+Antigravity = the chef
+Speckit     = the recipe / process the chef follows
+
+Without a recipe → chef freestyle → inconsistent results
+With a recipe    → structured, reproducible, reviewable output
+What Speckit actually does (the commands)
+text
+
+/speckit-constitution   → Sets the rules of the project ONCE
+                          "use SQLite, AI never decides, FAISS per domain"
+                          Every future feature inherits these rules automatically
+
+/speckit-specify        → Converts ONE BR into a proper spec
+                          "what exactly does BR-05 mean in our system?"
+
+/speckit-clarify        → Antigravity asks YOU questions before building
+                          "how many hours/week can a candidate study? min/max?"
+                          So it doesn't assume wrong things
+
+/speckit-plan           → Breaks spec into components, files, functions
+                          "we need these 4 files, these 2 agents, this DB table"
+
+/speckit-tasks          → Numbered task list with dependencies
+                          Task 1 before Task 2, no skipping
+
+/speckit-implement      → Actually writes the code, task by task
+                          Stops, shows you, waits for OK before next task
+Why use Speckit for THIS project specifically
+Without Speckit (freestyle)
+text
+
+You say: "build the learning hub"
+
+Antigravity:
+- Guesses what you mean
+- Makes 50 assumptions silently
+- Writes 800 lines of code
+- Violates 3 rules you stated 2 days ago
+- Uses Chroma instead of FAISS because it forgot
+- AI tutor invents CFA fees (no grounding enforced)
+- You find bugs in week 3 from week 1 decisions
+With Speckit
+text
+
+/speckit-specify BR-05
+→ Antigravity writes WHAT it understood, not code yet
+→ You read it, correct it
+
+/speckit-clarify
+→ "Does the plan update when mock exam score drops?"
+→ You answer. Now it's in the spec permanently.
+
+/speckit-plan
+→ Files, agents, DB tables proposed BEFORE code is written
+→ You can reject the architecture without touching code
+
+/speckit-implement Task 1
+→ Only Task 1. You see it. You approve.
+→ Task 2 only runs after Task 1 is confirmed.
+18 BRs across 9 months of building — without this structure it becomes spaghetti.
+
+Why NOT use something else
+Let me show you the real alternatives:
+
+Option A — Just chat with Antigravity (no structure)
+text
+
+Pro:  Fast to start
+Con:  No memory of decisions
+      Contradicts itself across sessions
+      No way to review "what did we decide for BR-07?"
+      Code grows without a plan
+      
+Verdict: Fine for a 2-hour hack. 
+         Terrible for 18 BRs over weeks.
+Option B — Write your own PRDs in Word/Notion, paste into Antigravity
+text
+
+Pro:  You control the format
+Con:  No enforcement — Antigravity still guesses
+      You paste, it ignores half of it
+      No constitution = rules are forgotten
+      Still no task-by-task discipline
+      
+Verdict: Better than nothing.
+         Still inconsistent at scale.
+Option C — Use a project management tool (Jira, Linear, etc.)
+text
+
+Pro:  Good for team tracking
+Con:  These tools don't WRITE CODE
+      They don't talk to Antigravity
+      You still need something to bridge 
+      "Jira ticket" → "actual code"
+      
+Verdict: Not a replacement for Speckit.
+         Can run alongside it.
+Option D — Speckit (what we're doing)
+text
+
+Pro:  Constitution enforces rules across ALL features
+      Every BR becomes a spec before code is written
+      You review at every stage before code touches disk
+      Decisions are recorded in memory files
+      Antigravity can't "forget" the rules
+      
+Con:  Slightly slower to start (constitution first)
+      Requires YOUR review at each checkpoint
+      
+Verdict: The only method that works for 
+         18 BRs + multi-agent + RAG + 
+         "chatbot must be accurate" requirement
+The specific reason Speckit matters for YOUR chatbot accuracy problem
+You said:
+
+"we need to make sure that chatbot will answer properly CFA based details not wrong details"
+
+This is a governance problem, not just a code problem.
+
+text
+
+Without constitution:
+  BR-07 AI Tutor spec → Antigravity decides "tutor can use general knowledge"
+  → tutor hallucinates CFA fees
+  → you find out in demo
+
+With constitution (written ONCE):
+  Rule: "AI agents must only answer from retrieved context.
+         No general knowledge for CFA-specific facts.
+         If context empty → say I don't know.
+         Source must be shown with every answer."
+
+  Now when Antigravity writes BR-07 code:
+  → It enforces this rule automatically
+  → Every agent it creates follows this
+  → You never have to repeat it
+The constitution is written once and acts as the law for all 18 BRs.
+
+Summary — One clean answer
+text
+
+┌─────────────────────────────────────────────────────────┐
+│  YES we use Speckit. Here is exactly why:               │
+│                                                         │
+│  1. It is not a separate tool — it runs inside          │
+│     Antigravity, no extra setup                         │
+│                                                         │
+│  2. Constitution = write the rules ONCE                 │
+│     (FAISS, CrewAI, "AI never decides", accuracy rules) │
+│     All 18 BRs inherit them automatically               │
+│                                                         │
+│  3. Specify → Clarify → Plan → Task → Implement         │
+│     means YOU review before code is written             │
+│     not after 500 lines that need to be thrown away     │
+│                                                         │
+│  4. For a chatbot that MUST be accurate about CFA:      │
+│     the constitution enforces grounding on every agent  │
+│     you write it once, it applies everywhere            │
+│                                                         │
+│  5. 18 BRs is too big for freestyle                     │
+│     Speckit is the only way to stay consistent          │
+│     across sessions, across features, across agents     │
+└─────────────────────────────────────────────────────────┘
+What happens next
+Once you confirm the remaining 4 choices from our last discussion:
+
+text
+
+1. FastAPI now or skip?
+2. CrewAI only or CrewAI + LangGraph later?
+3. Embedding model — OpenAI or Gemini?
+4. FAISS split indexes or one index?
+I will write the complete Antigravity prompt that you paste once and it:
+
+Runs /speckit-constitution with ALL our decisions locked in
+Immediately starts /speckit-specify for BR-01 (Registration)
+Pauses for your review before writing a single line of code
+That is the correct starting point. Your call on those 4 items.
+
+
+
+
+SO OVERALL WE WILL USE SPECKIT OR ANY OTHER TOOL WHY AND WHY NOT
+
+
+grok-4.6-xhigh
+
+
+Good. Navigation is locked. Now let’s settle the stack properly — because CrewAI, LangGraph, LangChain, and FastAPI are not competitors. They sit on different layers. Mixing them without knowing why is how POCs become messy.
+
+I’ll explain each layer, then FAISS vs others, then a concrete recommendation you can pick from.
+
+1. First: the layers (this is the important mental model)
+Think of the app as 5 layers. Each tool belongs to one layer only.
+
+text
+
+┌─────────────────────────────────────────────────────────┐
+│  LAYER 1 — UI                                           │
+│  Streamlit  (what the candidate sees)                   │
+│  Already decided ✅                                      │
+├─────────────────────────────────────────────────────────┤
+│  LAYER 2 — API / Transport                              │
+│  FastAPI  OR  “no API, just Python function calls”      │
+│  This is NOT an AI framework                            │
+├─────────────────────────────────────────────────────────┤
+│  LAYER 3 — Orchestration (who talks to whom)            │
+│  CrewAI  /  LangGraph  /  plain LangChain chains        │
+│  This is the “brain wiring”                             │
+├─────────────────────────────────────────────────────────┤
+│  LAYER 4 — Building blocks (RAG, tools, prompts)        │
+│  LangChain  (retrievers, embeddings, tools, loaders)    │
+│  Used UNDER CrewAI or LangGraph                         │
+├─────────────────────────────────────────────────────────┤
+│  LAYER 5 — Models + Memory                              │
+│  LLMs: OpenAI / Gemini (switchable)                     │
+│  Vectors: FAISS / Chroma / Pinecone                     │
+│  Structured data: SQLite                                │
+└─────────────────────────────────────────────────────────┘
+So the question is not “LangChain or FastAPI or LangGraph?”
+
+The real questions are:
+
+Do we need an HTTP API? → FastAPI yes/no
+How do agents work together? → CrewAI or LangGraph
+How do we do RAG / tools / embeddings? → LangChain (almost always, even with CrewAI)
+Where do embeddings live? → FAISS / Chroma / etc.
+2. FastAPI — do we actually need it?
+What it is: a Python web server. You expose endpoints like POST /chat, GET /profile. Other apps (mobile, React, another service) call them.
+
+What it is NOT: an AI framework. It does not do agents, RAG, or LLM calls by itself.
+
+FastAPI	No FastAPI (Streamlit calls Python directly)
+Extra process to run	Yes (uvicorn)	No — one streamlit run
+Good for mobile / 2nd UI later	Yes	No
+Extra code	Routes, schemas, CORS, auth	Almost none
+Debugging	Harder (UI + API + agents)	Easier
+Fits this POC	Only if you want a “real backend”	Best for POC
+Need for this project right now: No.
+Streamlit and CrewAI live in the same Python process. Dashboard → Python function → Crew → LLM. No HTTP in the middle.
+
+When you WOULD add FastAPI later:
+
+a mobile app
+a separate React frontend
+exam-delivery as its own service
+multiple teams consuming the same APIs
+Decision: skip FastAPI for the POC. If you want, we design the Python modules so they can be wrapped in FastAPI later without rewrite (services/ folder, no Streamlit imports inside business logic).
+
+3. LangChain vs LangGraph vs CrewAI
+These three get mixed up constantly. Here’s the clean version.
+
+LangChain — the toolbox
+What it is: Lego pieces for LLM apps.
+
+Load PDFs / markdown
+Split text into chunks
+Create embeddings
+Store/search in FAISS
+Prompt templates
+Tools (search, calculator, DB query)
+Output parsers (force JSON)
+What it is NOT: a good multi-agent system. Old “Chains” are linear: A → B → C. Bad at “if eligibility fails, go to KYC; if pass, generate study plan.”
+
+Pros	Cons
+Industry standard for RAG	Easy to write spaghetti
+Works with OpenAI, Gemini, FAISS, SQLite	Chains are rigid for multi-step journeys
+Huge examples / community	Version churn (0.1 → 0.2 → 0.3)
+CrewAI and LangGraph both use it	Alone, it won’t give you “tutor + planner + support” cleanly
+Need in our project: Yes, always.
+Even if we pick CrewAI, LangChain (or its community packages) is what talks to FAISS, loads CFA docs, and builds retriever tools the agents use.
+
+LangGraph — the flowchart / state machine
+What it is: you draw a graph of nodes and edges.
+
+text
+
+[intake] → [eligibility] → pass → [enroll]
+                 ↓ fail
+            [explain gaps] → [suggest next]
+You own the state (candidate_id, level, kyc_status, exam_date).
+You decide loops, retries, human approval, “stop and wait.”
+
+Built by the LangChain team. Used in your sibling project cfa-onboarding-poc.
+
+Pros	Cons
+Precise control — no agent freelancing	More code, more design up front
+Cycles, retries, human-in-the-loop	Not “hire 4 specialists” out of the box
+Checkpointing (pause / resume a journey)	Feels like engineering, not “AI team”
+Deterministic routing (good for eligibility, payment, scoring)	Multi-agent roles are DIY
+Matches “AI narrates, rules decide”	Steeper than CrewAI
+Need: best when the path is known (onboarding, payment, exam rules, scoring).
+Weak when you want “a tutor, a planner, and a support agent arguing over a question.”
+
+CrewAI — the team of specialists
+What it is: you hire agents with a role, goal, backstory, give them tools, put them in a crew, assign tasks.
+
+text
+
+Tutor Agent        — answers only from CFA curriculum RAG
+Planner Agent      — builds study plan from profile + exam date
+Eligibility Agent  — explains rules (does NOT decide)
+Support Agent      — FAQ + escalate
+Router / Manager   — picks which agent should answer
+Two collaboration modes:
+
+Sequential — Agent A finishes, hands off to B
+Hierarchical — a manager agent delegates
+Newer CrewAI also has Flows (closer to LangGraph) and Knowledge (built-in RAG).
+
+Pros	Cons
+Maps cleanly to our product: tutor / planner / support	Each extra agent = extra LLM calls = slower + costlier
+Easy to explain to stakeholders (“we have 4 specialists”)	Agents can over-talk or drift if prompts are weak
+Tools + RAG per agent (tutor only sees curriculum, support only sees FAQ)	Less precise than LangGraph for hard rules (fees, KYC pass/fail)
+You already said you want this	Debugging “who said what” needs good logging
+Plays well with OpenAI + Gemini	Not ideal as the decision engine for payment / scoring / eligibility
+Need: best when the work is conversational and specialist-based (tutor, planner, helpdesk).
+Weak as the source of truth for “is this person eligible?” or “did they pass?”
+
+Side-by-side (same user question)
+User: “Am I eligible for Level II, and what should I study this month?”
+
+Approach	What happens
+LangChain only	One long chain. Hard to split “eligibility” vs “study plan”. Easy to hallucinate.
+LangGraph	Node 1: run rules on profile → eligible yes/no. Node 2: if yes, generate plan. Node 3: narrate. You control every hop.
+CrewAI	Eligibility Agent reads rules tool → explains. Planner Agent reads curriculum + calendar → plan. Manager stitches the reply. Feels natural. Rules must still be a tool, not the LLM’s opinion.
+CrewAI + rules module (recommended)	Python rules decide eligibility. CrewAI only explains + plans. Same principle as your POC: AI narrates, it doesn’t decide.
+Do we use more than one?
+Yes — they stack:
+
+Piece	Job
+LangChain	RAG, FAISS, embeddings, tools, prompts
+CrewAI	Multi-agent (tutor, planner, support, router)
+LangGraph	Optional, only for rigid journeys (exam day check-in, payment state)
+FastAPI	Not now
+Do not use CrewAI + LangGraph together on day 1. That’s two orchestrators. Overkill. Pick CrewAI as the agent layer; keep eligibility / payment / scoring as plain Python. Add LangGraph later only if a journey becomes a real state machine (exam delivery is the usual candidate).
+
+4. Vector databases — FAISS vs Chroma vs the rest
+A vector DB stores embeddings (lists of numbers) so we can search “text that means the same thing,” not just keywords.
+
+For this app we need it for:
+
+CFA curriculum (tutor must ground answers)
+Fees, windows, policies (no hallucinated fees)
+FAQ / support
+Maybe question bank search
+How they differ (one line each)
+What it actually is	Persistence	Metadata filter (“only Level I, only Ethics”)	Server needed	Best at
+FAISS	A search index (Facebook). Not a full DB.	You save files yourself (index.faiss + index.pkl)	Weak / DIY	No	Fast similarity search, local POC
+ChromaDB	A real embedding database	Built-in	First-class	Optional (can be embedded)	App RAG with filters + collections
+Pinecone	Managed cloud vector DB	Their cloud	First-class	Yes (SaaS)	Production scale, zero ops
+Qdrant	High-performance vector DB	Yes	Excellent (payload filters)	Yes (or local Docker)	Production, filters, speed
+Weaviate	Vector DB + hybrid search + modules	Yes	Excellent	Yes	Hybrid keyword+vector, enterprise
+pgvector	Postgres extension	Postgres	SQL + vector	Postgres	When you already have Postgres
+FAISS — since you asked for this
+How it works: embed chunks → put vectors in an index → search nearest neighbors. LangChain wraps it so you also get a pickle of the original texts + metadata.
+
+Pros
+
+Very fast (that’s its only job)
+No extra process, no Docker, no account
+Free, local, offline — good for demos
+LangChain FAISS.save_local() / load_local() is enough for a POC
+You already said you want it — simplest path
+Cons
+
+Not a database. No users, no transactions, no nice “collections” UI
+Metadata filter is clumsy (e.g. “only Level II Ethics”) — you either:
+build separate indexes (level1, level2, fees, faq), or
+retrieve more chunks and filter in Python
+Concurrent writes are painful (don’t have 2 admins uploading PDFs at once)
+Updates = rebuild or carefully add; not “UPDATE this one page”
+No hybrid search (keyword + vector) unless you add it
+Index files can get large; you must back them up yourself
+Good for: POC, fixed CFA corpus, single-user admin rebuild, offline laptop demo.
+Bad for: production multi-tenant, frequent content edits, rich filters.
+
+ChromaDB (what the sibling POC used)
+Pros: persist by default, collections (curriculum, policies, faq), metadata where={"level": "I", "topic": "Ethics"}, easy Python API, can run embedded (like SQLite for vectors).
+
+Cons: heavier than FAISS, version bumps have bitten people, not as raw-fast as FAISS at huge scale, still not “enterprise multi-region.”
+
+Good for: app RAG where you filter by level/topic/doc type.
+Bad for: you explicitly don’t want it.
+
+Pinecone
+Pros: zero ops, scales, namespaces, filters, SLA.
+Cons: cloud, cost, needs network (kills “offline demo”), data leaves the laptop.
+Good for: production SaaS. Bad for: this POC.
+
+Qdrant / Weaviate
+Pros: serious filters, hybrid search, production-grade.
+Cons: another service (Docker), more moving parts than a POC needs.
+Good for: next phase if CFA content + filters become heavy.
+
+pgvector
+Only worth it if we drop SQLite for Postgres. Not now.
+
+Practical recommendation for this POC if we use FAISS
+FAISS is fine if we design around its limits:
+
+text
+
+faiss_indexes/
+  curriculum_l1/     ← tutor for Level I
+  curriculum_l2/
+  curriculum_l3/
+  policies_fees/     ← fees, windows, eligibility text
+  faq_support/       ← helpdesk
+  question_bank/     ← optional, search similar questions
+Tutor agent only searches curriculum_*
+Support agent only searches faq_support + policies_fees
+Planner uses curriculum index + SQLite (exam date, hours/week)
+That gives us the “don’t invent CFA fees” guarantee without Chroma’s metadata engine.
+
+Chatbot accuracy rule (non-negotiable, any vector DB):
+
+Retrieve top-k chunks from the allowed index only
+System prompt: answer only from context; if missing, say you don’t know
+Show source (file + section) under every answer
+Fees / eligibility / pass-fail stay in SQLite + Python rules, not in the LLM
+FAISS vs Chroma does not change accuracy. Grounding + “no context = I don’t know” does.
+
+5. LLM switcher (OpenAI + Gemini)
+This is a thin layer, not a framework choice.
+
+text
+
+config / UI toggle:  provider = openai | gemini
+                         ↓
+              LLM Factory
+           ┌─────────────┴─────────────┐
+      ChatOpenAI                  ChatGoogleGenerativeAI
+      (GPT-4o / 4o-mini)         (Gemini 1.5 / 2.0 Flash)
+           └─────────────┬─────────────┘
+                    CrewAI agents
+                    + embeddings
+Details that matter:
+
+Chat model (tutor, planner, support) — switch freely. Same prompts 90% of the time.
+Embeddings (what FAISS stores) — do not switch casually.
+OpenAI text-embedding-3-small and Gemini embeddings are different vector spaces.
+If you change embedding model, you rebuild all FAISS indexes.
+So: pick one embedding model and freeze it (I suggest OpenAI embeddings even if chat is Gemini, or Gemini embeddings if you want one vendor). Chat can still switch.
+Keys in .env (OPENAI_API_KEY, GOOGLE_API_KEY), never in git.
+Admin Tools Hub: dropdown “Chat provider: OpenAI | Gemini” + “Test connection.”
+CrewAI supports both via its LLM config (and via LangChain chat models). This is straightforward.
+
+6. How CrewAI maps to this product (so we don’t over-agent)
+Don’t create 18 agents for 18 BRs. That’s slow and expensive.
+
+4 agents + 1 router is enough:
+
+Agent	Sees (tools / indexes)	Never does
+Router	user page + intent	business decisions
+Tutor	FAISS curriculum only	fees, eligibility verdict, scores
+Planner	profile + exam date + curriculum list	invent unofficial topics
+Support	FAISS FAQ + policies	change KYC / payment / booking
+Everything else stays software:
+
+Registration, KYC status, payment, slot booking, scoring, certificate = SQLite + Python
+Agents read that state and explain. They don’t write “pass” or “paid.”
+That’s how the chatbot stays CFA-correct and you still get a “multi-agent” story for stakeholders.
+
+7. Two stack options (given what you asked)
+Option 1 — What you asked, kept simple (my recommendation)
+text
+
+UI            Streamlit
+API           None (modules ready for FastAPI later)
+Agents        CrewAI (router + tutor + planner + support)
+Toolbox       LangChain (loaders, splitters, FAISS, tools)
+LLM chat      OpenAI  OR  Gemini  (UI toggle)
+Embeddings    ONE frozen model (don’t toggle)
+Vectors       FAISS (multiple indexes by domain)
+Data          SQLite
+Auth          Streamlit session (POC)
+Why this is the right POC: one process, multi-agent story, grounded RAG, switchable chat LLMs, no Docker zoo.
+
+Option 2 — Same, but LangGraph instead of CrewAI
+Only if you care more about journey state machines than named specialist agents.
+You said you want CrewAI → don’t pick this unless you change your mind.
+
+What I would not do
+CrewAI and LangGraph on day 1
+FastAPI + Streamlit + CrewAI all wired on day 1
+One giant FAISS index for curriculum + fees + FAQ (cross-contamination → wrong answers)
+Switching embedding models from the same dropdown as chat
+8. Locked so far vs still your call
+Item	Status
+Navigation (Dashboard, My Profile, Explore & Enroll, Study Room, Exam Center, My Credentials, Notifications, Help, Admin + right-rail companion)	Locked
+UI = Streamlit	Locked
+DB = SQLite	Locked
+Chat LLM = OpenAI and Gemini, user-selectable	Locked
+Agents = CrewAI	You want this — I agree for tutor/planner/support
+Vectors = FAISS	You want this — OK if we use split indexes
+FastAPI	My vote: not now
+LangChain	My vote: yes (RAG/tools under CrewAI)
+LangGraph	My vote: not now (add only for exam-day flow if needed)
+Embedding model	Still need you to pick one and freeze it
+9. What I need from you to freeze the stack
+Reply with choices:
+
+FastAPI: skip for now / add from day 1
+Orchestration: CrewAI only (recommended) / CrewAI + LangGraph later for exam flow
+Embeddings (freeze one):
+A) OpenAI text-embedding-3-small (best quality/price, chat can still be Gemini)
+B) Gemini embedding model (one vendor if chat is often Gemini)
+FAISS layout: split indexes as I suggested (recommended) / one index (I advise against)
+Once you answer those four, I’ll write the exact Antigravity / speckit constitution + first specify prompt with this stack hardcoded so we don’t re-debate it in every feature.
+
+minimax-m2.7
+
+
+
+Thought for 9 seconds
+
+The user wants to understand the differences between various tech stack options before deciding. They want to know:
+
+FAISS vs ChromaDB vs other vector databases - pros/cons
+LangChain vs LangGraph vs FastAPI - pros/cons and why we need what
+CrewAI multi-agent model understanding
+They want the option to choose between Gemini and OpenAI keys
+Let me explain all of these in a clear, detailed way with pros/cons for each.
+
+Let me organize this well:
+
+Vector Databases: FAISS, ChromaDB, Pinecone, Weaviate - explain what they do, pros/cons
+
+Orchestration Layer: LangChain, LangGraph, FastAPI - explain what each does, why we need orchestration, pros/cons
+
+Multi-Agent Systems: CrewAI - what it is, how it works
+
+LLM Options: OpenAI vs Gemini - with key switching capability
+
+For vector databases, I need to cover what vector search actually is - it's fundamentally about finding similar items by converting data into numerical vectors and comparing their distances. FAISS from Facebook is built for speed and efficiency with large-scale vector operations, while ChromaDB is more developer-friendly and handles metadata better.
+
+ChromaDB is an embedding database with nice Python integration, though it can be slow at scale and doesn't handle concurrent writes well. Pinecone is cloud-native with managed infrastructure and real-time updates, but it costs money and you're dependent on the cloud provider. Weaviate is open source and handles both vectors and structured data with strong filtering capabilities, though it requires more operational overhead. FAISS excels at speed and memory efficiency for billions of vectors, supports GPU acceleration, and has minimal dependencies, but it's essentially just an index without metadata or CRUD operations - it's just a search library. For this project with thousands of vectors and the need for CRUD operations, I'm weighing whether FAISS plus a metadata store like SQLite would be the best approach.
+
+For orchestration, FastAPI is the standard Python web framework with async support, automatic documentation, and Pydantic validation, but it doesn't natively handle agentic workflows or state management. LangChain is the dominant framework for building LLM applications with components for prompts, chains, agents, and retrieval, though it's verbose, constantly changing, and can be slow. LangGraph from LangChain is specifically designed for agentic and multi-agent workflows with state management and cycles - it's more minimal and explicit with better control than LangChain, and it's what the existing proof of concept already uses. I'm trying to understand what distinguishes these tools from each other.
+
+Looking at the core differences: LangChain is the umbrella framework with many abstractions, while LangGraph is a subset focused specifically on graph-based agent workflows with persistent state across steps. The proof of concept uses LangGraph because it's better for complex multi-step workflows with state that needs to persist - exactly what the CFA platform needs for eligibility checks, proctoring, and personalization. CrewAI is a separate multi-agent orchestration framework that competes with LangGraph rather than building on top of it, offering role-based agents and simpler setup, though it's newer with less flexibility compared to LangGraph's explicit state management.
+
+For this use case, the user wants CrewAI for multi-agent capabilities, which means I need to decide whether to use CrewAI alone or combine it with LangGraph and FastAPI. The real question is understanding what each tool does: FastAPI handles the web framework and API endpoints, LangGraph manages stateful agent workflows within that API, and CrewAI provides the multi-agent orchestration layer on top. FastAPI gives us async endpoints and API structure, LangGraph handles stateful agent flows, and CrewAI manages the orchestration layer. I'm leaning toward CrewAI for multi-agent tasks since that's what the user specifically requested, though I should clarify whether they want it replacing LangGraph entirely or working alongside it. Let me structure my response to compare the vector databases, explain how the orchestration tools differ, and then recommend the simplest path forward given their requirements.
+
+Great questions — let me break all of this down in detail so you understand exactly why we use each thing before we decide.
+
+Part 1 — Vector Databases (FAISS vs ChromaDB vs Others)
+What is a Vector Database and Why Do We Need One?
+text
+
+Traditional Database:     "Give me user with ID = 123"
+Vector Database:          "Give me the 5 most similar CFA topics to 'portfolio management'"
+                           [Finds by meaning, not exact keyword match]
+For the AI Tutor (BR-07), we need to find relevant curriculum content when a candidate asks a question. A vector database stores "embeddings" (numbers representing meaning) and finds the closest matches.
+
+FAISS vs ChromaDB vs Pinecone vs Weaviate
+Feature	FAISS	ChromaDB	Pinecone	Weaviate
+Type	Search library	Embedding database	Managed vector DB	Open source vector DB
+Who made it	Meta (Facebook)	Chroma team	Pinecone (company)	Weaviate (company)
+Setup	Local / pip install	Local / pip install	Cloud only	Local or Cloud
+Metadata filtering	❌ Limited	✅ Full	✅ Full	✅ Full
+CRUD operations	❌ Add/delete only	✅ Full CRUD	✅ Full	✅ Full
+Scales to	Billions of vectors	100K-1M comfortably	Unlimited	Millions
+Persistence	Manual (pickle/npy files)	Built-in	Managed cloud	Built-in
+Speed	⚡ Fastest (GPU support)	Medium	Fast	Fast
+Maintenance	You manage it	You manage it	✅ Fully managed	You manage it
+Cost	Free	Free	Paid ($70+/month)	Free (self-hosted)
+Dependencies	None (C++ core)	Python	Cloud only	Docker/Kubernetes
+Best for	Performance-critical, large-scale	POC, Python projects	Production cloud	Production self-hosted
+FAISS — Deep Dive
+What it actually is: A C++ library from Meta that does one thing extremely well — vector similarity search at scale.
+
+text
+
+FAISS stores vectors in INDEX structures:
+├── IndexFlatL2        → Simple, exact search (slow for large data)
+├── IndexIVFFlat       → Faster approximate search (good balance)
+├── IndexIVFPQ         → Compressed, very fast, slightly less accurate
+├── GPU Index          → NVIDIA GPU accelerated (10-100x faster)
+└── IndexHNSW         → Graph-based, fast, good accuracy
+Pros:
+
+⚡ Fastest vector search available, especially with GPU
+📦 No external service needed — runs locally
+🆓 Free, no API key, no cloud dependency
+🧠 Excellent for millions of vectors
+Used by production systems at Meta, Spotify, Netflix scale
+Cons:
+
+❌ Not a full database — no native metadata storage
+❌ No built-in CRUD for documents
+❌ No query API — you need Python code to interact with it
+❌ No server mode — runs in-process
+❌ You must manage saving/loading indexes manually
+How you use it in this project:
+
+Python
+
+# ChromaDB wraps FAISS internally with better DX
+# But you can also use FAISS directly:
+
+import faiss
+import numpy as np
+
+# Create index
+d = 1536  # embedding dimension (OpenAI ada-002)
+index = faiss.IndexFlatL2(d)
+index.add(np.random.rand(10000, d).astype('float32'))
+
+# Search
+D, I = index.search(np.random.rand(1, d).astype('float32'), k=5)
+# D = distances, I = indices
+
+# Save/Load
+faiss.write_index(index, "cfa_curriculum.index")
+index = faiss.read_index("cfa_curriculum.index")
+ChromaDB — Deep Dive
+What it actually is: A full embedding database that wraps FAISS (and other backends) with added document storage, metadata, CRUD, and a simple API.
+
+text
+
+ChromaDB Architecture:
+┌─────────────────────────────────┐
+│         ChromaDB Client         │
+│  (Python API / HTTP server)    │
+├─────────────────────────────────┤
+│  Collection Manager             │  ← organizes by topic/namespace
+│  Metadata Store (SQLite)        │  ← stores documents + metadata
+│  Vector Store (FAISS/Annoy/etc) │  ← actual similarity search
+│  Embedding Function             │  ← OpenAI / sentence-transformers
+└─────────────────────────────────┘
+Pros:
+
+✅ Simple Python API — works out of the box
+✅ Built-in document storage with metadata
+✅ CRUD operations (add, update, delete)
+✅ Persistent storage (SQLite backend)
+✅ Built-in embedding functions
+✅ Query with metadata filters easily
+✅ Can run as HTTP server (client-server mode)
+✅ Great for POC and Python-first projects
+Cons:
+
+❌ Slower than raw FAISS (extra abstraction layer)
+❌ Not designed for billions of vectors
+❌ Limited concurrency (single writer)
+❌ Smaller community than FAISS
+❌ Less flexible for custom indexing strategies
+Why I'm Suggesting FAISS for Your Project
+Given that you want FAISS, here's why that works:
+
+text
+
+Our use case:
+- ~10,000-50,000 curriculum chunks  (not billions)
+- Need persistent storage
+- Need metadata filtering
+- Need simple API
+- POC, no cloud dependency
+
+Solution: FAISS + SQLite (manual integration)
+OR
+Solution: ChromaDB (which uses FAISS underneath anyway)
+
+For THIS project, both work. ChromaDB is easier.
+FAISS gives you more control and speed for large scale.
+If you use FAISS directly, we pair it with SQLite for metadata:
+
+text
+
+FAISS Index (vectors) + SQLite Table (documents + metadata) = full vector DB
+If you use ChromaDB, it does this automatically under the hood.
+
+My recommendation for you: Use ChromaDB for now (simpler, same FAISS speed for your scale). But the architecture supports swapping to raw FAISS later if needed.
+
+Part 2 — LangChain vs LangGraph vs FastAPI vs CrewAI
+This is the most confusing part — let me clear it up first:
+
+The Hierarchy — What Does Each Thing Do?
+text
+
+HIGH LEVEL:  "Build a web app with AI agents"
+                    ↓
+            FastAPI (Web Framework)
+            Handles: HTTP requests, API endpoints, auth, deployment
+                    ↓
+            LangGraph / CrewAI (Orchestration)
+            Handles: Multi-step AI workflows, state, memory, decisions
+                    ↓
+            LangChain (Components Library)
+            Handles: Prompt templates, LLM calls, RAG, tools
+                    ↓
+            LLM Providers (OpenAI, Gemini, Groq)
+            Handles: Actual AI inference
+text
+
+Think of it like building a house:
+- FastAPI      = The walls, doors, roof (structure)
+- LangGraph    = The electrical wiring + circuit breaker logic (intelligent flows)
+- LangChain    = The electrical components (switches, outlets, wires)
+- LLM          = The power grid (where the actual electricity comes from)
+- CrewAI       = The home automation system that coordinates lights, AC, blinds together
+FastAPI — What It Is and Why You Need It
+What it is: Python's most popular web framework for building APIs.
+
+What it does:
+
+text
+
+Request → FastAPI → Processes logic → Returns Response
+
+Example:
+POST /api/enroll
+{
+  "candidate_id": "CFA-2024-001",
+  "level": "Level I",
+  "payment_ref": "PAY-12345"
+}
+↓
+FastAPI validates, saves to SQLite, returns enrollment confirmation
+When you need it:
+
+Building any API endpoint (REST/GraphQL)
+Connecting frontend (Streamlit) to backend logic
+Deploying as a service
+Handling authentication, rate limiting
+Async operations (multiple requests at once)
+When you DON'T need it:
+
+Single-user POC with in-process logic
+Simple scripts
+Streamlit-only apps (Streamlit IS the web framework)
+For your project:
+
+If using Streamlit only → No FastAPI needed, LangGraph runs in-process
+If using Streamlit + separate backend → Yes, FastAPI for API endpoints
+If using Next.js/React frontend → Yes, FastAPI for backend API
+LangChain — What It Is and Why You Need It
+What it is: A components library — not a framework, not an orchestration tool. It's a collection of building blocks for LLM apps.
+
+What it provides (the "modules"):
+
+text
+
+LangChain Modules:
+├── chat_models/        → OpenAI, Gemini, Anthropic wrappers
+├── embeddmodels/       → Text embedding models
+├── document_loaders/   → PDF, CSV, Markdown readers
+├── text_splitters/     → Chunking documents for RAG
+├── vectorstores/       → ChromaDB, FAISS, Pinecone wrappers
+├── retrievers/         → RAG retrieval strategies
+├── prompts/           → Prompt templates
+├── chains/            → Pre-built workflows (LCEL)
+├── agents/            → Simple agent configurations
+├── memory/            → Conversation history
+└── tools/             → Function calling, web search, etc.
+Key thing to understand about LangChain:
+
+It is NOT LangGraph
+LangGraph is a separate package that USES LangChain components
+LangChain v0.1+ has LangChain Expression Language (LCEL) for chains
+Many people confuse LangChain the library with LangGraph the orchestration tool
+When you need LangChain:
+
+RAG pipelines (document → chunk → embed → store → retrieve → answer)
+Prompt management
+LLM call wrappers (OpenAI, Gemini with same interface)
+Tool-calling agents
+When you DON'T need LangChain:
+
+Simple LLM calls (just use openai-python directly)
+Pure rule-based logic
+CrewAI handles its own LLM calls
+LangGraph — What It Is and Why You Need It
+What it is: A stateful graph-based orchestration layer built on top of LangChain components. Made by the LangChain team specifically for agentic workflows.
+
+What problem does it solve?
+
+text
+
+Without LangGraph:
+- User asks: "Am I eligible for Level 2?"
+- LLM answers: "Yes"  ❌ (LLM doesn't know your actual profile)
+
+With LangGraph:
+- User asks: "Am I eligible for Level 2?"
+- LangGraph checks actual candidate data (from SQLite)
+- Applies eligibility rules (deterministic, no LLM guess)
+- Returns: "You passed Level 1 in June 2024 ✓, 
+            You have 4 months experience ✓ → Eligible"
+- AI narrates the result nicely
+LangGraph Core Concepts:
+
+text
+
+1. State (shared data across the workflow):
+   {
+     "candidate": CandidateProfile,
+     "messages": [...],
+     "eligibility_result": {...},
+     "study_plan": [...]
+   }
+
+2. Nodes (steps in the workflow):
+   Node = "check_eligibility" → checks rules
+   Node = "generate_response" → calls LLM
+   Node = "save_to_db" → persists data
+   Node = "route_decision" → branches logic
+
+3. Edges (connections between nodes):
+   If eligible → show enrollment page
+   If not eligible → show gap analysis
+
+4. Conditional Edges (dynamic routing):
+   If low confidence → human review
+   If high confidence → auto-approve
+Why LangGraph over LangChain agents?
+
+Feature	LangChain Agents	LangGraph
+State persistence	❌ Each call stateless	✅ Shared state across steps
+Cycles/loops	Limited	✅ Full support
+Human-in-loop	Manual	✅ Built-in checkpoints
+Streaming	Manual	✅ Built-in
+Debugging	Hard to trace	✅ Visual graph, clear state
+Reproducibility	Unclear	✅ Deterministic state updates
+Multi-agent flows	Possible but messy	✅ Designed for it
+Production ready	⚠️	✅ Yes
+LangGraph is already in your cfa-onboarding-poc — that's why I suggested it.
+
+CrewAI — What It Is and Why You Need It
+What it is: A multi-agent orchestration framework where different AI agents (with roles, goals, and tools) work together to complete complex tasks.
+
+The CrewAI mental model:
+
+text
+
+Traditional AI:     One agent does everything
+                    Agent: "Book me an exam slot"
+                    → Books it
+
+CrewAI:             Multiple specialized agents coordinate
+                    Researcher: "Finds available slots"
+                    Advisor: "Checks eligibility"  
+                    Booker: "Books the best slot"
+                    Communicator: "Sends confirmation"
+                    → They collaborate, vote, or cascade
+CrewAI Core Concepts:
+
+text
+
+1. Agents (specialized workers):
+   - Role: "CFA Curriculum Expert"
+   - Goal: "Provide accurate curriculum-based answers"
+   - Backstory: "You are a CFA Institute certified educator..."
+   - Tools: [RAG tool, web search tool]
+
+2. Tasks (jobs to do):
+   - Description: "Answer this student question about Fixed Income"
+   - Expected output: "Answer with topic reference and citation"
+   - Agent: [which agent does this]
+
+3. Crew (team of agents):
+   - agents: [Curriculum Expert, Mock Exam Grader, Study Advisor]
+   - tasks: [Answer question, Grade mock test, Suggest study plan]
+   - process: "sequential" | "hierarchical" | "parallel"
+   - verbose: True
+CrewAI Process Types:
+
+text
+
+Sequential:  Agent A → Agent B → Agent C → Result
+             (One finishes, next starts)
+
+Hierarchical: Manager Agent → delegates to Specialist Agents → reviews output
+              (Like a real team)
+
+Parallel:    All agents work simultaneously → merge results
+             (Fastest, good for independent tasks)
+Real Example for CFA Platform:
+
+text
+
+CREW: CFA Learning Support Crew
+
+Agent 1: Curriculum Expert (Role: CFA curriculum authority)
+         Tools: [RAG tool over curriculum DB]
+         Goal: "Answer questions accurately citing CFA readings"
+
+Agent 2: Mock Exam Grader (Role: Assessment specialist)
+         Tools: [Question bank DB, scoring rules]
+         Goal: "Grade responses, identify weak areas"
+
+Agent 3: Study Path Advisor (Role: Learning coach)
+         Tools: [Progress tracker, AI recommendation engine]
+         Goal: "Generate personalized study recommendations"
+
+Task 1: "Student asked: Explain duration in bond management"
+         → Assigned to Curriculum Expert
+
+Task 2: "Student completed 20 MCQs on Fixed Income"
+         → Assigned to Mock Exam Grader
+
+Task 3: "Based on recent mock performance, suggest next steps"
+         → Assigned to Study Path Advisor
+
+Process: Sequential (answer → grade → advise)
+How LangGraph and CrewAI Work Together
+This is where it gets interesting — they're NOT mutually exclusive:
+
+text
+
+Option A: CrewAI ONLY
+- CrewAI has its own agent framework
+- Good for multi-agent, less control over state
+- Newer, smaller community
+
+Option B: LangGraph ONLY
+- Better state management
+- More explicit control
+- Better for complex multi-step flows
+- CrewAI can use LangGraph under the hood (yes, really)
+
+Option C: CrewAI + LangGraph (RECOMMENDED for you)
+- LangGraph handles persistent state, checkpoints, complex routing
+- CrewAI agents handle specialized domain tasks
+- LangGraph "supervises" the crew
+- Most powerful combination
+
+Option D: Neither — FastAPI + custom code
+- Maximum control, maximum complexity
+- No framework magic
+- Good for simple apps
+text
+
+ARCHITECTURE FOR YOUR PROJECT:
+
+Streamlit UI
+    ↓
+LangGraph (Main Orchestrator)
+    ├── State: candidate profile, journey stage, session data
+    ├── Nodes: Eligibility Check, Payment, Study Plan, etc.
+    └── Edges: Route based on journey stage
+    
+    ↓
+CrewAI (Specialized Domain Agents)
+    ├── Curriculum Expert Agent → AI Tutor (BR-07)
+    ├── Mock Exam Agent → Practice Tests (BR-08)
+    ├── Study Advisor Agent → Personalized Path (BR-05)
+    └── Support Agent → Helpdesk (BR-15)
+    
+    ↓
+LangChain (Components)
+    ├── LLM Wrappers (OpenAI / Gemini switchable)
+    ├── Embeddings (OpenAI / Gemini)
+    ├── Vector Store (FAISS via LangChain)
+    ├── Document Loaders
+    └── Prompt Templates
+
+    ↓
+Data Layer
+    ├── SQLite (candidate data, enrollments, scores)
+    └── FAISS (curriculum vectors)
+Part 3 — Summary: What Each Thing Does and Why
+Tool	What It Does	Why You Need It	Replaces Others?
+Streamlit	Web UI framework	Build the frontend UI fast	No
+FastAPI	Web API framework	API endpoints if separate backend needed	No — complementary
+LangChain	LLM component library	RAG, prompts, LLM wrappers, tool integrations	No — it's the building blocks
+LangGraph	Stateful graph orchestration	Multi-step AI workflows with memory & state	Handles what LangChain agents can't
+CrewAI	Multi-agent framework	Specialized domain agents that collaborate	Optional — but makes multi-agent clean
+FAISS/ChromaDB	Vector similarity search	Find relevant curriculum content for RAG	No — works with everything
+SQLite	Database	Store candidates, enrollments, scores	No
+OpenAI/Gemini	LLM providers	Actual AI generation	No — these are the AI
+Recommended Stack Based on Your Choices
+text
+
+✅ Streamlit (frontend)
+✅ LangGraph (orchestration)
+✅ CrewAI (multi-agent domain experts)
+✅ LangChain (RAG, LLM wrappers)
+✅ FAISS (vector search)  
+✅ SQLite (database)
+✅ OpenAI + Gemini (dual LLM, user can switch)
+This gives you:
+
+Fast UI development (Streamlit)
+Complex multi-step flows (LangGraph)
+Specialized AI agents (CrewAI)
+RAG capability (LangChain + FAISS)
+Dual LLM support (OpenAI/Gemini switchable)
+Persistent data (SQLite)
+Zero cloud dependency (all local)
+Proven pattern from cfa-onboarding-poc
+Confirm this stack and I'll write the complete antigravity prompt with all these components wired together, including the dual-LLM switching logic and CrewAI multi-agent setup.
+
+ai keys i will provide for gemini and for open ai, we can have a option to choose between them
+We need creai multi agent model
+and faiss we will use instead of chromaDB (also tell me benefits pros and cons and how all of these db is different and which one is good ofr which, also i want to understand we will use langchain and fastapi or langgraph i dont know tell me the exact pros cons and why we use that thing and what is the need for what thing then accordingly we will further see which one to use, rest your suggestion looks fine
+navigation one also looks fine
+
+
+
+Max
+
+
+Let me discuss both your questions clearly.
+
+Navigation Structure Discussion
+Your Current Proposed Structure
+text
+
+Home/Dashboard
+Onboarding & Profile
+Discover & Enroll
+Learning Hub
+Exam Center
+Results & Certification
+Notifications
+Support & Helpdesk
+Tools Hub (Admin)
++ AI Companion (right rail)
+Is it fine? Yes, but let's think about it from a real user's perspective
+The problem is — a CFA candidate doesn't think in "epics". They think in "what am I doing today?"
+
+Let me give you 3 navigation options:
+
+Option A — Journey-Stage Navigation (What I proposed)
+text
+
+🏠 Home
+👤 My Profile & KYC
+🎓 Programs & Enroll
+📚 Learn
+🖥️ My Exam
+🏅 Results
+🔔 Notifications
+💬 Support
+🛠️ Admin Tools
+Pro: Maps 1:1 to BRs, easy to build spec by spec
+Con: Feels like a back-office system, not a product
+Best for: POC / demo to stakeholders
+
+Option B — Role-Based Navigation (Candidate vs Admin split)
+text
+
+CANDIDATE VIEW:
+🏠 Dashboard
+📋 My Journey (single timeline view)
+📚 Study Room
+🖥️ Exam Room
+🏅 My Credentials
+
+ADMIN VIEW (separate login):
+👥 Candidate Management
+📦 Content Manager
+📊 Analytics
+⚙️ System Settings
+Pro: Clean separation, realistic product feel
+Con: More complex to build, two auth contexts
+Best for: If you want it to look like a real product
+
+Option C — Dashboard-First, Everything Contextual (Simplest)
+text
+
+🏠 Dashboard (smart, shows what's relevant NOW)
+    └── New user? → shows onboarding steps
+    └── Enrolled? → shows study plan + exam date
+    └── Post-exam? → shows results + certificate
+
+⚙️ Settings & Profile
+🛠️ Admin Panel (separate)
+Pro: Minimal navigation, very clean
+Con: More complex dashboard logic, harder to demo individual BRs
+Best for: Final product, not POC
+
+My Recommendation for YOUR case (POC for TCS/CFA stakeholders)
+Go with Option A but rename tabs to be more human:
+
+text
+
+🏠  Dashboard
+👤  My Profile          (Registration + KYC)
+🎓  Explore & Enroll    (Discovery + Payment + Scheduling)  
+📚  Study Room          (Learning Path + LMS + AI Tutor + Mock Tests + Analytics)
+🖥️  Exam Center         (Proctoring + Exam Delivery)
+🏅  My Credentials      (Results + Certificate)
+🔔  Notifications
+💬  Help & Support
+🛠️  Admin              (Tools, DB, Vector Store etc)
+
+[AI Companion - right side, always there]
+This is clean, maps to BRs, and looks like a real product. Not over-complicated.
+
+Tech Stack Discussion
+Let me give you options from simple to complex — you pick what fits:
+
+Frontend Options
+Option	Tech	Complexity	Good for
+A	Streamlit	⭐ Very Low	POC, internal demos
+B	Streamlit + Custom Components	⭐⭐ Low	POC with better UI
+C	Next.js / React	⭐⭐⭐⭐ High	Real product
+My suggestion: Streamlit — you already have it in cfa-onboarding-poc, fast to build, good enough for this POC
+
+Backend / AI Orchestration Options
+Option	Tech	Complexity	Good for
+A	LangGraph (in-process)	⭐⭐ Low	POC, agent workflows
+B	FastAPI + LangGraph	⭐⭐⭐ Medium	Separate API layer
+C	LangChain + FastAPI	⭐⭐⭐ Medium	Standard RAG apps
+D	CrewAI / AutoGen	⭐⭐⭐⭐ High	Multi-agent complex
+My suggestion: LangGraph — already used in POC, handles state well, good for multi-step flows
+
+LLM / AI Options
+Option	Tech	Cost	Accuracy
+A	OpenAI GPT-4o	Paid	Very High
+B	Azure OpenAI	Paid (enterprise)	Very High
+C	Ollama (local models)	Free	Medium
+D	Groq (llama3/mixtral)	Free tier	Good
+E	Gemini Flash	Free tier	Good
+My suggestion: OpenAI GPT-4o for quality, or Groq if you want free/fast for POC
+
+RAG / Vector Store Options
+Option	Tech	Complexity	Good for
+A	ChromaDB (local)	⭐ Very Low	POC, offline
+B	FAISS	⭐ Very Low	POC, in-memory
+C	Pinecone	⭐⭐⭐ Medium	Cloud, production
+D	Weaviate	⭐⭐⭐ Medium	Production
+My suggestion: ChromaDB — already in POC, persistent, local, zero cost
+
+Database Options
+Option	Tech	Complexity	Good for
+A	SQLite	⭐ Very Low	POC, single file
+B	PostgreSQL	⭐⭐⭐ Medium	Production
+C	Supabase	⭐⭐ Low-Medium	Managed Postgres
+My suggestion: SQLite for POC — zero setup, already used in sibling project
+
+About the Chatbot Being Accurate on CFA Details
+This is the most important point you raised. Here's how we make sure it only answers from real CFA data:
+
+text
+
+Wrong approach ❌
+User: "What is the fee for CFA Level 1?"
+Bot: [GPT hallucinates a number]
+
+Right approach ✅
+User: "What is the fee for CFA Level 1?"
+Bot: [Searches ChromaDB → finds fee document → answers from that]
+    "Based on CFA Institute guidelines, the enrollment fee is $350 
+     and the exam fee is $900-$1200 depending on registration window."
+     Source: [fee_schedule_2024.pdf]
+How we enforce this:
+
+All CFA-specific info (fees, dates, curriculum, policies, eligibility rules) goes into ChromaDB as source documents
+Chatbot is RAG-only — it cannot answer without finding a source chunk
+System prompt says: "Only answer from the provided context. If not found, say 'I don't have that information, please check cfa.institute.com'"
+Every answer shows source reference so user can verify
+Eligibility, fees, scheduling — these are hardcoded rules, not LLM decisions
+Summary — What I Recommend (Simple Stack)
+text
+
+UI          →  Streamlit
+Orchestration → LangGraph (in-process)  
+LLM         →  OpenAI GPT-4o (or Groq for free)
+RAG         →  ChromaDB (local, persistent)
+Database    →  SQLite
+Auth        →  Simple session state (POC) or Streamlit-Authenticator
+Deployment  →  Local / Docker
+This is literally what cfa-onboarding-poc already uses — so we're not reinventing anything.
+
+What do you want to decide?
+
+Navigation structure — Option A/B/C or the modified Option A I suggested?
+Tech stack — go with the simple stack above or any changes?
+For the chatbot — do you already have CFA documents (curriculum PDFs, fee schedules, policy docs) to feed into RAG, or do we create synthetic ones?
+Once you confirm these 3 things, I'll write the exact antigravity prompt to kick off speckit.
+
+
+
+
+lets see the requirement mentioned in the following folder
+and lets discuss what we can do
+how we can approach this
+Where ai will be required
+lets discuss this and then tell me different options to plan the things and then we will see how we can ask our antigravity to implement with speckit
+Updated todo list
+
+Read
+
+Searched for files matching **/requirement1.txt, 1 match
+
+Read
+
+Read
+
+Read
+
+Read
+
+Read
+
+Read
+
+Read
+
+Read
+
+Read
+
+Read
+
+Read
+
+I reviewed requirement1.txt (18 BRs covering the full CFA candidate journey) and also looked at your sibling project cfa-onboarding-poc, which already implements a spec-kit-driven POC (LangGraph + Streamlit + rules-first eligibility engine, with a constitution.md and numbered specs/001…010 features). That gives us a proven pattern to build on rather than starting cold.
+
+1. Grouping the 18 BRs into Epics
+The BRD is really 6 journey epics + 3 cross-cutting concerns:
+
+Epic	BRs	Theme
+A. Onboarding & Identity	BR-01, BR-02	Registration, SSO, KYC/liveness
+B. Discovery & Enrollment	BR-03, BR-04, BR-09	Program browsing, eligibility check, payment, exam slot booking
+C. Learning Ecosystem	BR-05, BR-06, BR-07, BR-08, BR-13	Personalized study path, LMS content, AI tutor, mock exams, progress analytics
+D. Exam Delivery	BR-10	Secure delivery + proctoring
+E. Results & Credentialing	BR-11, BR-12	Score reporting, digital certificates
+F. Engagement & Support	BR-14, BR-15	Notifications, chatbot/helpdesk
+Cross-cutting	BR-16, BR-17, BR-18	Accessibility, privacy/security/compliance, reliability/scalability — these aren't features, they're constitution-level constraints applied to every epic
+2. Where AI is actually required
+Being deliberately selective here (learning from the sibling project's rule: AI narrates, it doesn't decide):
+
+BR	AI need	Type
+BR-02	Liveness/face-match, fraud/anomaly flagging	CV / anomaly detection
+BR-03	"Relevant to profile" program recommendation	Light recommender (rules-first, AI-assisted ranking)
+BR-05	Personalized study plan generation	LLM planning + adaptive scheduling logic
+BR-07	AI tutor answering curriculum questions	RAG + LLM (grounded, must cite topic/reading)
+BR-08	Weak-area detection, adaptive question selection	Analytics ML / rules + LLM explanation
+BR-10	Real-time proctoring (gaze, face, audio anomalies)	CV/audio ML, real-time inference
+BR-13	Readiness prediction	Predictive model (pass-likelihood), deterministic scoring underneath
+BR-15	Support chatbot with escalation	LLM + intent classification/RAG
+BR-16 (optional)	Translation, speech-to-text for accessibility	LLM/ASR
+Everything else (BR-01, 04, 06, 09, 11, 12, 14, 17, 18) is standard engineering — no AI needed, or AI is cosmetic at best.
+
+3. Architecture Approach — Options
+Option 1: One spec-kit repo, multiple numbered features (mirrors cfa-onboarding-poc)
+All 6 epics as specs/001…00N in a single repo with one shared constitution.md. Simplest governance, one deployable app, consistent stack. Risk: repo grows large; epics D (proctoring) and A (KYC) have very different technical needs (real-time CV) than C (LMS/RAG), which could strain "one stack fits all."
+
+Option 2: Multiple spec-kit repos, one per epic, integrated via contracts
+Each epic (Onboarding, Enrollment, Learning, Exam Delivery, Results) is its own spec-kit project with its own constitution, later composed via APIs. Matches microservice reality of a full platform. More setup overhead, but scales better and lets AI-heavy epics (Learning, Exam Delivery) use a different stack than CRUD-heavy epics (Enrollment, Results).
+
+Option 3: Phased MVP — one thin vertical slice end-to-end first
+Build Registration → Discovery → Enrollment → basic Learning → mock Exam → Results → Certificate as a walking skeleton with AI stubbed/deterministic, prove the journey, then go back and deepen AI in each epic (tutor, personalization, proctoring) in later iterations. Lowest risk, fastest demo-able result, but "AI value" is deferred.
+
+Option 4: AI-capability-first
+Build the 3 hardest AI services first as standalone modules (AI Tutor/RAG, Personalized Learning Path engine, Proctoring integrity engine), proven independently with synthetic data, then wire the journey UI around them. Good if the goal is to de-risk the hardest parts early, but no visible end-to-end journey until later.
+
+My inclination: Option 1 for governance + Option 3 for sequencing — single repo/constitution like the existing POC, but implemented epic-by-epic starting with a thin walking skeleton, deepening AI per epic afterward. That mirrors exactly how cfa-onboarding-poc was built (001-platform-foundation first, then feature-by-feature).
+
+4. How this maps to spec-kit / "antigravity"
+Once we pick an option, the workflow per epic is the same pattern you already used: /speckit-constitution (once, shared) → /speckit-specify → /speckit-clarify → /speckit-plan → /speckit-tasks → /speckit-implement, one epic = one numbered feature folder. I can draft the constitution and the first /speckit-specify prompt once we lock scope/stack.
+
+A few things I need from you before drafting that:
+
+Analyzing your answers...
+
+Locked in: single repo, multiple speckit features, BRD order A→F, reuse the cfa-onboarding-poc stack (Streamlit + LangGraph + SQLite + Chroma), plus a persistent right-side AI Companion. Here's the fuller plan.
+
+UI / Navigation Plan
+mermaid
+
+flowchart LR
+    subgraph Sidebar["Left Nav (st.navigation)"]
+    H[Home / Dashboard]
+    O[Onboarding & Profile]
+    D[Discover & Enroll]
+    L[Learning Hub]
+    E[Exam Center]
+    R[Results & Certification]
+    N[Notifications]
+    S[Support & Helpdesk]
+    T[Tools Hub - admin]
+    end
+    subgraph Rail["Persistent Right Rail"]
+    AI[AI Companion Chat<br/>context-aware on every page]
+    end
+9 primary tabs, each with subtabs:
+
+Tab	Subtabs	BRs
+🏠 Home / Dashboard	Overview · My Progress · Upcoming Deadlines	BR-13
+👤 Onboarding & Profile	Register/SSO · Profile & Education · Identity Verification (KYC)	BR-01, BR-02
+🎓 Discover & Enroll	Explore Programs · Eligibility Check · Enroll & Pay · Schedule/Reschedule Exam	BR-03, BR-04, BR-09
+📚 Learning Hub	My Study Plan · Curriculum Library · AI Tutor · Practice & Mock Exams · Performance Breakdown	BR-05, BR-06, BR-07, BR-08
+🖥️ Exam Center	Exam Day Check-in · Proctoring Session · Integrity Log	BR-10
+🏅 Results & Certification	Score Report · Digital Certificate/Badge · Verify/Share Link	BR-11, BR-12
+🔔 Notifications	Inbox · Channel & Frequency Preferences	BR-14
+💬 Support & Helpdesk	Chat History · My Tickets (escalated) · FAQ	BR-15
+🛠️ Tools Hub (admin)	Content/Curriculum Manager · Vector Store Manager · Question Bank Manager · Notification Templates · Data & DB (seed/reset) · Audit & Logs · Accessibility Settings	BR-16, BR-17, BR-18 (cross-cutting)
+AI Companion (right rail, always visible): one chat surface, but routes by context — Learning Hub → curriculum tutor (RAG over content), Discover & Enroll → eligibility/fees/scheduling Q&A, Support → helpdesk/escalation. Same "AI narrates, never decides" rule as the POC: it never overrides eligibility, payment, or scoring logic.
+
+Confirmed Build Order (BRD order, each epic fully specced→planned→tasked→implemented before the next)
+Onboarding & Identity (BR-01, BR-02)
+Discovery & Enrollment (BR-03, BR-04, BR-09)
+Learning Ecosystem (BR-05, BR-06, BR-07, BR-08, BR-13)
+Exam Delivery (BR-10)
+Results & Credentialing (BR-11, BR-12)
+Engagement & Support (BR-14, BR-15)
+Cross-cutting BR-16/17/18 aren't a separate epic — they go into the constitution so every feature inherits them automatically, plus get concrete surfaces in Tools Hub.
+
+Data I'll need you to prepare (synthetic, matching the POC's "synthetic-only" rule — no real PII)
+2–3 sample candidate profiles (name, education, program interest, target exam date) — same shape as the POC's ApplicantProfile if you want continuity
+Curriculum sample: topics/readings/learning-outcome-statements for at least one CFA level (markdown/text is fine) — needed for LMS + AI Tutor RAG
+Mock exam question bank: MCQs with correct answers, topic tags, difficulty level
+Program/fee/exam-window data: levels, prices, exam dates, centers/remote slots
+Policy/FAQ docs for the support chatbot (can likely reuse cfa_policy_docs from the POC)
+Notification copy templates (email/SMS/push) for key milestones
+Proctoring integrity rules (synthetic thresholds only — e.g. "face not detected > 5s", no real video needed)
+Accommodation types + supported languages list for accessibility
+I don't need any of this immediately — I'll flag exactly when each is needed as we hit that epic.
+
+Master Prompt for Antigravity (speckit-driven)
+text
+
+We are building "CFA Digital Candidate Journey" — a single spec-kit-driven repo covering the
+end-to-end candidate lifecycle (registration → onboarding → learning → examination →
+certification → engagement), based on the attached BRD (requirement/requirement1.txt, BR-01
+through BR-18).
+
+Reuse the architecture pattern from the sibling project `cfa-onboarding-poc`: Streamlit UI,
+LangGraph in-process agent orchestration, SQLite persistence, ChromaDB for RAG, deterministic
+rules-first logic with AI used only to narrate/explain/personalize (never to make eligibility,
+payment, or scoring decisions), offline-capable with synthetic data only.
+
+UI structure: left sidebar navigation with 9 tabs — Home/Dashboard, Onboarding & Profile,
+Discover & Enroll, Learning Hub, Exam Center, Results & Certification, Notifications,
+Support & Helpdesk, and an admin Tools Hub (content/vector-store/question-bank/notification-
+template management, DB seed/reset, audit & logs, accessibility settings). Add a persistent
+right-side "AI Companion" chat rail available on every page, context-routed: curriculum tutor
+on Learning Hub, eligibility/fees/scheduling help on Discover & Enroll, helpdesk/escalation on
+Support.
+
+Step 1: Run /speckit-constitution to establish the project constitution, adapting the
+cfa-onboarding-poc constitution's principles (deterministic rules + AI narration only,
+typed contracts, auditability/reproducibility, offline-capable synthetic-only) to this larger
+scope, and add BR-16/17/18 (accessibility WCAG 2.1 AA, data privacy/GDPR, reliability/SLA) as
+non-negotiable cross-cutting principles that every future feature must satisfy.
+
+Step 2: Build features in this exact order, one at a time — for each: /speckit-specify →
+/speckit-clarify → /speckit-plan → /speckit-tasks → /speckit-implement, and do not start the
+next feature until the current one's tests pass and the app runs end to end:
+  001-onboarding-identity        (BR-01 registration/onboarding, BR-02 KYC/identity verification)
+  002-discovery-enrollment       (BR-03 program discovery/eligibility, BR-04 enrollment & payment,
+                                  BR-09 exam slot scheduling)
+  003-learning-ecosystem         (BR-05 personalized learning path, BR-06 LMS content, BR-07 AI
+                                  tutor, BR-08 practice/mock exams, BR-13 progress analytics)
+  004-exam-delivery              (BR-10 secure exam delivery & AI-assisted proctoring)
+  005-results-credentialing      (BR-11 results/score reporting, BR-12 digital certification)
+  006-engagement-support         (BR-14 notifications, BR-15 support chatbot/helpdesk)
+
+For each feature's spec, explicitly state its acceptance criteria from the BRD, note which parts
+require AI (list them, and specify they are advisory/narrative only, never the source of a
+decision), and flag any synthetic data you need me to supply before implementation can start.
+
+Start now with Step 1 (constitution), then Step 2 feature 001-onboarding-identity's
+/speckit-specify, and pause for my review before proceeding further.
+Want me to save this plan (epics, nav structure, data checklist, build order) into repo memory now so it persists across sessions in this workspace?
+
+Created 4 todos
+
+No no
+I am asking the ay you put cateogories and sub categories
+Home dashboard, onboarding profile etc is it fine or do we need other way?
+also lets discuss different techstack we are using and you are suggesting and i will choose
+We dont need to over complicate the things
+and we need to make sure that chatbot will answer properly cfa based details not wrong details and the details which are there right now
+
+requirement Document details:
+Business Requirements & Acceptance Criteria
+Document Title: CFA Digital Candidate Journey BRD Classification: TCS Confidential Scope: End-to-End Digital Candidate Journey for CFA Examination & Learning Ecosystem (Covering the full candidate lifecycle — discovery, enrollment, learning, examination, certification, and continuous engagement)
+
+Business Requirements Matrix
+
+Req ID Business Requirement Description Acceptance Criteria
+1 BR-01 Candidate Registration & Digital Onboarding A prospective candidate must be able to register and onboard onto the CFA platform through a single, guided digital journey. • Candidate can self-register via web/mobile with email or social/SSO login. • Guided onboarding captures profile, education, and program interest. • Account is created and a personalized dashboard is provisioned within 3 seconds of successful sign-up.
+2 BR-02 Identity Verification & KYC Candidate identity must be verified digitally before enrollment and examination to ensure authenticity and compliance. • Government-ID and biometric/liveness checks are supported. • Verification status is recorded and auditable. • Failed or suspicious verifications are flagged and routed for manual review.
+3 BR-03 Program & Exam Discovery Candidate must be able to explore CFA levels, curriculum, eligibility, and exam windows relevant to their profile. • System displays Level I/II/III details, prerequisites, and fees. • Eligibility is validated against candidate profile before enrollment. • Available exam windows and locations are shown in real time.
+4 BR-04 Enrollment & Fee Payment Candidate must be able to enroll for an exam level and complete secure fee payment online. • Multiple payment methods (card, net-banking, wallet) are supported. • Payment is processed via PCI-DSS compliant gateway with instant receipt. • Enrollment is confirmed and reflected in the candidate dashboard on success.
+5 BR-05 AI-Driven Personalized Learning Path The learning ecosystem must generate a tailored study plan based on candidate profile, level, and available study time. • System recommends a level-appropriate study path mapped to the curriculum. • Plan adapts to target exam date and weekly study capacity. • Each recommendation maps to specific topics/learning outcomes.
+6 BR-06 Digital Learning Content & LMS Candidate must be able to access structured curriculum content, videos, and reading materials within an integrated LMS. • Curriculum is organized by topic, reading, and learning outcome statement. • Content supports web and mobile with offline access where applicable. • Completion and time-on-content are tracked per candidate.
+7 BR-07 AI Study Assistant / Tutor Candidate must be able to ask questions and receive contextual explanations from an AI tutor during preparation. • Assistant answers curriculum-based questions with grounded, accurate responses. • Explanations reference the relevant topic/reading. • Candidate can request practice questions or clarifications on demand.
+8 BR-08 Practice Tests & Mock Examinations Candidate must be able to take timed practice tests and full-length mock exams that mirror the real exam. • Mock exams replicate exam format, timing, and difficulty. • Automated scoring with topic-level performance breakdown is provided. • Weak areas are identified and fed back into the learning path.
+9 BR-09 Exam Slot Scheduling & Booking Candidate must be able to schedule, reschedule, or cancel an exam appointment digitally. • Real-time availability of dates, centers, and remote slots is shown. • Booking, rescheduling, and cancellation follow policy rules and windows. • Confirmation and calendar reminders are issued automatically.
+10 BR-10 Secure Exam Delivery & Proctoring The examination must be delivered securely with center-based or remote AI-assisted proctoring. • Exam launches only after identity re-verification. • AI proctoring detects and logs integrity violations in real time. • Exam content and responses are encrypted end to end.
+11 BR-11 Results Processing & Score Reporting Candidate must receive accurate, timely exam results with a clear performance summary. • Results are published within the committed SLA window. • Score report shows pass/fail and topic-level performance bands. • Results are accessible and downloadable from the dashboard.
+12 BR-12 Digital Certification & Credentialing Successful candidates must receive a verifiable digital certificate/badge upon meeting requirements. • Tamper-proof, verifiable digital credential is issued automatically. • Credential is shareable to professional networks (e.g., LinkedIn). • Third parties can validate authenticity via a verification link.
+13 BR-13 Progress Tracking & Analytics Dashboard Candidate must be able to monitor learning progress, readiness, and exam outcomes in one place. • Dashboard shows study progress, mock scores, and readiness indicators. • Analytics highlight strengths, gaps, and recommended next actions. • Data updates in near real-time as the candidate progresses.
+14 BR-14 Notifications & Omni-Channel Communication Candidate must receive timely reminders and updates across the journey via multiple channels. • Automated reminders for deadlines, exams, and study milestones are sent. • Notifications are delivered via email, SMS, push, and in-app. • Candidate can manage channel and frequency preferences.
+15 BR-15 Support, Helpdesk & Chatbot Assistance Candidate must be able to obtain help across registration, learning, and exam processes. • AI chatbot resolves common queries and escalates complex ones. • Human support is reachable with full context handover. • Support interactions are logged and tracked to resolution.
+16 BR-16 Accessibility & Inclusion The platform must be accessible to candidates with diverse needs and provide accommodations. • Interface meets WCAG 2.1 AA accessibility standards. • Exam accommodations (extra time, assistive tech) can be requested and applied. • Content supports multiple languages/locales where applicable.
+17 BR-17 Data Privacy, Security & Compliance Candidate data across the ecosystem must be protected and processed in a compliant manner. • PII is encrypted in transit and at rest with role-based, audited access. • Processing complies with GDPR and applicable data-protection standards. • Consent and data-retention policies are enforced and traceable.
+18 BR-18 Platform Reliability & Scalability The ecosystem must remain reliable and performant during peak enrollment and exam periods. • System scales to peak load without degradation of experience. • Uptime meets agreed SLA (e.g., ≥99.9%) with self-healing on transient faults. • Failover and recovery events are logged without candidate-facing disruption.
+Business Outcomes Addressed
+Seamless digital candidate experience
+Higher enrollment & completion rates
+Improved exam integrity & trust
+Personalized, outcome-driven learning
+Faster results & credentialing
+Scalable, reliable, compliant operations
+
+
+Ask followup…
+
+
+Add files
+
+
+
+
+Inputs are processed by third-party AI and responses may be inaccurate.
+

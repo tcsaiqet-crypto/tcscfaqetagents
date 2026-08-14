@@ -115,3 +115,150 @@ def test_get_requirement_coverage_endpoint():
     assert len(data["categories"]) == 0
     assert len(data["requirements"]) == 0
 
+
+
+def test_get_requirement_coverage_endpoint_with_seeded_state():
+    """G4: Validate coverage endpoint math when requirements and test cases are non-empty.
+
+    Seeds a run state with:
+    - 3 requirements across 2 categories (Security, Functional)
+    - 2 test cases mapped to the first 2 requirements
+    Then asserts exact coverage counts, percentages, mapped_test_cases, and category-level math.
+    """
+    from src.services.run_state_service import save_run_state, load_run_state
+    from schemas.contracts import (
+        AppState,
+        ApplicationUnderstanding,
+        ApplicationComponent,
+        Requirement,
+        RequirementCategory,
+        RequirementType,
+        TestSuite,
+        TestCase,
+    )
+
+    # Create a new run
+    run_resp = client.post("/api/v1/runs", json={"project_name": "Coverage Seeded Test"})
+    assert run_resp.status_code == 200
+    run_id = run_resp.json()["run_id"]
+
+    # Build seeded requirements
+    req_auth = Requirement(
+        requirement_id="REQ-AUTH-01",
+        title="Secure Login",
+        description="JWT-based login must be enforced",
+        type=RequirementType.Security,
+        category_id="CAT-SEC",
+        source_evidence="Login.tsx",
+    )
+    req_upload = Requirement(
+        requirement_id="REQ-UPLOAD-01",
+        title="Document Upload",
+        description="Accept PDF/DOCX uploads up to 10 MB",
+        type=RequirementType.Functional,
+        category_id="CAT-FUNC",
+        source_evidence="Upload.tsx",
+    )
+    req_flow = Requirement(
+        requirement_id="REQ-FLOW-01",
+        title="Application Submission",
+        description="End-to-end loan application flow",
+        type=RequirementType.Functional,
+        category_id="CAT-FUNC",
+        source_evidence="pipeline.py",
+    )
+
+    cat_sec = RequirementCategory(
+        category_id="CAT-SEC",
+        name="Security Controls",
+        type=RequirementType.Security,
+        description="Security requirement catalog group",
+        requirements=[req_auth],
+    )
+    cat_func = RequirementCategory(
+        category_id="CAT-FUNC",
+        name="Functional Verification",
+        type=RequirementType.Functional,
+        description="Functional requirement catalog group",
+        requirements=[req_upload, req_flow],
+    )
+
+    # Map 2 test cases to REQ-AUTH-01 and REQ-UPLOAD-01; REQ-FLOW-01 stays uncovered
+    tc1 = TestCase(
+        case_id="TC-AUTH-001",
+        title="Login with valid credentials",
+        feature_area="Authentication",
+        description="Happy path login test",
+        preconditions=["User account exists"],
+        steps=["Navigate to /login", "Enter credentials", "Click Login"],
+        expected_result="Redirect to dashboard",
+        case_type="Positive",
+        priority="High",
+        requirement_id="REQ-AUTH-01",
+        requirement_category_id="CAT-SEC",
+        requirement_type="Security",
+    )
+    tc2 = TestCase(
+        case_id="TC-UPLOAD-001",
+        title="Upload valid PDF",
+        feature_area="Document Upload",
+        description="Happy path upload test",
+        preconditions=["User is logged in"],
+        steps=["Click Upload", "Select PDF < 10 MB", "Confirm"],
+        expected_result="File accepted and listed",
+        case_type="Positive",
+        priority="Medium",
+        requirement_id="REQ-UPLOAD-01",
+        requirement_category_id="CAT-FUNC",
+        requirement_type="Functional",
+    )
+
+    # Load and mutate state
+    state = load_run_state(run_id)
+    assert state is not None
+
+    und = ApplicationUnderstanding(
+        summary="CFA Loan Application",
+        architecture_notes="React + FastAPI",
+        components=[],
+        requirements=[req_auth, req_upload, req_flow],
+        requirement_categories=[cat_sec, cat_func],
+    )
+    state.understanding = und
+    state.test_suite = TestSuite(suite_id="TS-G4-001", name="G4 Coverage Test Suite", description="Seeded test suite for G4 coverage endpoint verification", test_cases=[tc1, tc2])
+    save_run_state(state)
+
+    # Call coverage endpoint
+    coverage_resp = client.get(f"/api/v1/runs/{run_id}/coverage")
+    assert coverage_resp.status_code == 200
+    data = coverage_resp.json()
+
+    # --- Top-level coverage math ---
+    assert data["total_requirements"] == 3
+    assert data["covered_requirements"] == 2       # REQ-AUTH-01 + REQ-UPLOAD-01
+    assert data["coverage_percentage"] == 66.7     # round(2/3*100, 1)
+
+    # --- Per-requirement mapped_test_cases ---
+    req_map = {r["requirement_id"]: r for r in data["requirements"]}
+    assert req_map["REQ-AUTH-01"]["is_covered"] is True
+    assert "TC-AUTH-001" in req_map["REQ-AUTH-01"]["mapped_test_cases"]
+
+    assert req_map["REQ-UPLOAD-01"]["is_covered"] is True
+    assert "TC-UPLOAD-001" in req_map["REQ-UPLOAD-01"]["mapped_test_cases"]
+
+    assert req_map["REQ-FLOW-01"]["is_covered"] is False
+    assert req_map["REQ-FLOW-01"]["mapped_test_cases"] == []
+
+    # --- Category-level math ---
+    cat_map = {c["category_id"]: c for c in data["categories"]}
+
+    # CAT-SEC: 1 req, 1 covered => 100%
+    assert cat_map["CAT-SEC"]["total_requirements"] == 1
+    assert cat_map["CAT-SEC"]["covered_requirements"] == 1
+    assert cat_map["CAT-SEC"]["coverage_percentage"] == 100.0
+
+    # CAT-FUNC: 2 reqs, 1 covered => 50%
+    assert cat_map["CAT-FUNC"]["total_requirements"] == 2
+    assert cat_map["CAT-FUNC"]["covered_requirements"] == 1
+    assert cat_map["CAT-FUNC"]["coverage_percentage"] == 50.0
+

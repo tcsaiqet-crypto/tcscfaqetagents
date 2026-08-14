@@ -1,0 +1,41 @@
+================================================================================
+CFA DIGITAL JOURNEY — FINAL CONTEXT HARDENING & SYSTEM SIGNOFF
+================================================================================
+Signoff Date: 2026-08-12
+Engineer: Antigravity
+Final Verdict: PASSED
+
+--------------------------------------------------------------------------------
+1. VERDICT & QUALITY GATES
+--------------------------------------------------------------------------------
+VERDICT: PASS
+- Automated Unit Tests: 23/23 PASSED (100% pass rate in 9.63s)
+- Streamlit App Smoke Test: PASSED (Compiles and launches cleanly on port 8502)
+- Context Determinism: VERIFIED (100% accurate page context binding in session state)
+
+--------------------------------------------------------------------------------
+2. EXACT FILES CHANGED
+--------------------------------------------------------------------------------
+1. cfa-digital-journey/app.py
+   - Refactored navigation to use explicit session-state tracking (st.session_state["nav_main"] and sub-section keys).
+   - Computes active_context BEFORE rendering content and BEFORE passing to right-rail AI Companion.
+2. cfa-digital-journey/tests/test_agent_context.py
+   - Added automated context routing test verifying AgentManager context behavior across 3+ distinct page contexts.
+
+--------------------------------------------------------------------------------
+3. BEFORE vs AFTER CONTEXT BEHAVIOR SUMMARY
+--------------------------------------------------------------------------------
+BEFORE:
+- `active_context` was sequentially assigned inside multiple `st.tabs()` rendering blocks.
+- Because Streamlit executes all tab blocks sequentially during script evaluation, `active_context` was repeatedly overwritten by whichever tab block executed last (Admin), causing misrouting in the right-rail AI Companion.
+
+AFTER:
+- Navigation state (`selected_main`, `selected_sub`) is read explicitly from `st.session_state` at the top of the run.
+- `active_context` is derived deterministically as `f"{clean_main} — {selected_sub}"` BEFORE any tab content or right rail component is processed.
+- The right-rail AI Companion receives 100% accurate, user-visible page context for RAG retrieval and agent routing.
+
+--------------------------------------------------------------------------------
+4. RESIDUAL RISKS INVENTORY
+--------------------------------------------------------------------------------
+- Level II/III curriculum deep reading details are incomplete in raw source materials; handled via Constitution Principle 8 with grounded refusal guidance directing users to cfainstitute.org.
+- Vector store embeddings are frozen to OpenAI text-embedding-3-small as per Constitution Principle 10.

@@ -1,0 +1,59 @@
+================================================================================
+CFA DIGITAL JOURNEY — SIDEBAR NAVIGATION & AI COMPANION UI FIX REPORT
+================================================================================
+Date: 2026-08-13
+Engineer: Antigravity
+Status: PASS (100% Verified)
+
+--------------------------------------------------------------------------------
+1. ROOT CAUSES IDENTIFIED & RESOLVED
+--------------------------------------------------------------------------------
+- Previous Root Cause: app.py was using Streamlit's `type="primary"` / `type="secondary"`
+  button arguments to represent active/inactive navigation and subtab states.
+  Because no `.streamlit/config.toml` existed to override primary theming, Streamlit
+  rendered default red buttons for active states, creating red rounded rectangles.
+- Resolution: Removed all usage of `type="primary"` and `type="secondary"` from app.py.
+  Active items (sidebar nav & horizontal subtabs) are now rendered as static, non-clickable
+  styled HTML divs with glassmorphism styling, while inactive items use plain st.button()
+  elements without `type` parameters.
+
+--------------------------------------------------------------------------------
+2. SUMMARY OF BEFORE VS AFTER CHANGES
+--------------------------------------------------------------------------------
+Feature 1: Sidebar Width & Layout
+- Before: Full-width unconstrained sidebar with bulky button blocks.
+- After: Narrowed sidebar explicitly to ~250px via CSS (`width: 250px !important`).
+  Retained dark navy background (`#0B192C`) and 4 category headers (`OVERVIEW & IDENTITY`,
+  `LEARNING & EXAMS`, `CREDENTIALS & SUPPORT`, `SYSTEM ADMIN`).
+
+Feature 2: Active Navigation & Subtab Rendering
+- Before: Interactive buttons with `type="primary"` rendering as raw red boxes.
+- After: Active items render as static non-clickable glassmorphism cards (`.nav-glass-active`
+  and `.subtab-glass-active`) featuring a translucent background, `backdrop-filter: blur`,
+  a 1px translucent border, a left accent bar in cyan/teal (`#00D2FF` / `#0C7C84`), soft
+  box-shadow glow, and rounded corners (10-12px). Inactive items render as plain buttons.
+
+Feature 3: Collapse / Expand Toggle Button
+- Before: Wide text button `☰ Collapse Navigation`.
+- After: Restyled as a small centered glass pill toggle button (`◀` / `▶`) inside a 3-column
+  layout in the sidebar header.
+
+Feature 4: Dedicated AI Companion Right-Rail Panel
+- Before: Unbounded chat input with single-response display and radio model provider switch.
+- After: Dedicated bordered card with a title header and model provider pill badge (`OPENAI`/`GEMINI`).
+  Provider radio replaced with two small toggle buttons (`OpenAI` / `Gemini`).
+  Scrollable chat history container (`st.container(height=380)`) rendering conversation bubbles
+  backed by `st.session_state["companion_messages"]`.
+  Enter-to-submit form composer (`st.form`) calling `AgentManager.process_query()`.
+  Sources expander per assistant message and disclaimer retained.
+
+--------------------------------------------------------------------------------
+3. VERIFICATION & TESTS
+--------------------------------------------------------------------------------
+- Test Suite: Executed `python -m pytest tests/ -q`
+  Outcome: 23 passed out of 23 tests (100% pass rate).
+- Business Logic: Zero changes to `services/`, database schemas, or governance rules.
+
+================================================================================
+END OF REPORT
+================================================================================
