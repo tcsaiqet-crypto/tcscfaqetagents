@@ -15,7 +15,7 @@ client = TestClient(app)
 def test_read_root():
     response = client.get("/")
     assert response.status_code == 200
-    assert "QET Agent" in response.text
+    assert "QET API Layer" in response.text or "QET Agent" in response.text
 
     health_resp = client.get("/api/v1/health")
     assert health_resp.status_code == 200

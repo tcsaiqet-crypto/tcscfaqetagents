@@ -222,7 +222,7 @@ def get_understanding(run_id: str):
             "retryable": err.get("retryable", True)
         }
 
-    if state.understanding and (state.status == "understanding_ready" or state.status == "indexing"):
+    if state.understanding and state.status == "understanding_ready":
         return {
             "status": "ready",
             "understanding": state.understanding
@@ -233,311 +233,38 @@ def get_understanding(run_id: str):
         "progress": state.progress
     }
 
+from fastapi.staticfiles import StaticFiles
+import os
 
-@app.get("/", response_class=HTMLResponse)
-def serve_react_ui():
-    return """<!DOCTYPE html>
-<html lang="en" class="dark">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>QET Agent - React Spec-Kit UI</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
-  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-  <script src="https://unpkg.com/lucide@latest"></script>
-  <style>
-    body { font-family: 'Inter', sans-serif; background-color: #020617; color: #f8fafc; }
-    code, pre { font-family: 'JetBrains Mono', monospace; }
-  </style>
-</head>
-<body class="bg-slate-950 text-slate-100 min-h-screen">
-  <div id="root"></div>
-  <script type="text/babel">
-    const { useState, useEffect } = React;
+# Resolve dist directory path
+# __file__ is backend/src/api/fastapi_app.py
+# parents[2] is backend/
+dist_path = Path(__file__).resolve().parents[2] / "dist"
+if not dist_path.exists():
+    # Also check sibling directories if running from QET agents
+    dist_path = Path(__file__).resolve().parents[3] / "qet-react-ui" / "dist"
 
-    const API_BASE = '/api/v1';
-
-    function App() {
-      const [runId, setRunId] = useState('');
-      const [appState, setAppState] = useState(null);
-      const [activeTab, setActiveTab] = useState('home');
-      const [docFiles, setDocFiles] = useState([]);
-      const [zipFile, setZipFile] = useState(null);
-      const [statusMsg, setStatusMsg] = useState('');
-      const [errorMsg, setErrorMsg] = useState('');
-      const [isAnalyzing, setIsAnalyzing] = useState(false);
-      const [understanding, setUnderstanding] = useState(null);
-      const [errorDiagnostics, setErrorDiagnostics] = useState(null);
-
-      useEffect(() => {
-        initRun();
-      }, []);
-
-      const initRun = async () => {
-        try {
-          const res = await fetch(`${API_BASE}/runs`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ project_name: 'CFA Digital Journey' })
-          });
-          const data = await res.json();
-          setRunId(data.run_id);
-          setAppState(data.state);
-        } catch (err) {
-          console.error(err);
-        }
-      };
-
-      const pollStatus = async () => {
-        if (!runId) return;
-        try {
-          const res = await fetch(`${API_BASE}/runs/${runId}/status`);
-          const data = await res.json();
-          setAppState(prev => ({
-            ...prev,
-            status: data.state,
-            progress: data.progress,
-            error: data.error,
-            intake_manifest: data.intake_manifest
-          }));
-        } catch (err) {
-          console.error(err);
-        }
-      };
-
-      const handleDocUpload = async (e) => {
-        if (!e.target.files.length || !runId) return;
-        const files = Array.from(e.target.files);
-        const formData = new FormData();
-        files.forEach(f => formData.append('files', f));
-
-        setStatusMsg('Uploading requirement documents...');
-        try {
-          const res = await fetch(`${API_BASE}/runs/${runId}/documents`, { method: 'POST', body: formData });
-          const data = await res.json();
-          setStatusMsg(`Successfully uploaded ${data.uploaded_count} requirement file(s).`);
-          pollStatus();
-        } catch (err) {
-          setErrorMsg('Document upload failed.');
-        }
-      };
-
-      const handleZipUpload = async (e) => {
-        if (!e.target.files.length || !runId) return;
-        const file = e.target.files[0];
-        if (!file.name.endsWith('.zip')) {
-          setErrorMsg('Only .zip files are allowed.');
-          return;
-        }
-        const formData = new FormData();
-        formData.append('file', file);
-
-        setStatusMsg('Extracting & indexing codebase ZIP...');
-        try {
-          const res = await fetch(`${API_BASE}/runs/${runId}/codebase`, { method: 'POST', body: formData });
-          const data = await res.json();
-          setStatusMsg(`Codebase ZIP uploaded (${data.intake_manifest.total_files} files extracted).`);
-          pollStatus();
-        } catch (err) {
-          setErrorMsg('Codebase ZIP processing failed.');
-        }
-      };
-
-      const handleStartUnderstanding = async () => {
-        if (!runId) return;
-        setIsAnalyzing(true);
-        setErrorDiagnostics(null);
-        try {
-          await fetch(`${API_BASE}/runs/${runId}/understanding/start`, { method: 'POST' });
-          const interval = setInterval(async () => {
-            const res = await fetch(`${API_BASE}/runs/${runId}/understanding`);
-            const data = await res.json();
-            if (data.status === 'ready') {
-              clearInterval(interval);
-              setUnderstanding(data.understanding);
-              setIsAnalyzing(false);
-              pollStatus();
-            } else if (data.status === 'failed') {
-              clearInterval(interval);
-              setErrorDiagnostics(data);
-              setIsAnalyzing(false);
-              pollStatus();
-            }
-          }, 1500);
-        } catch (err) {
-          setIsAnalyzing(false);
-          setErrorMsg(err.message);
-        }
-      };
-
-      const isIntakeReady = Boolean(
-        appState?.intake_manifest && 
-        (appState.intake_manifest.total_files > 0 || (appState.intake_manifest.doc_files && appState.intake_manifest.doc_files.length > 0))
-      );
-
-      return (
-        <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
-          {/* Header */}
-          <header className="sticky top-0 z-50 bg-slate-950/90 backdrop-blur border-b border-slate-800 px-6 py-4 flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-cyan-500 to-purple-600 flex items-center justify-center font-bold text-white shadow-lg">Q</div>
-              <div>
-                <h1 className="text-base font-bold bg-gradient-to-r from-slate-100 via-cyan-200 to-purple-300 bg-clip-text text-transparent">QET AI Execution Engine</h1>
-                <p className="text-[10px] text-slate-400 font-mono">React-First Spec-Kit Delivery</p>
-              </div>
-            </div>
-
-            <div className="flex items-center space-x-4">
-              <div className="text-xs bg-slate-900 border border-slate-800 px-3 py-1 rounded-lg">
-                <span className="text-slate-400">Active Run: </span>
-                <code className="text-cyan-300 font-bold">{runId || 'Loading...'}</code>
-              </div>
-              <button onClick={initRun} className="text-xs text-slate-400 hover:text-cyan-300 underline font-medium">New Run</button>
-            </div>
-          </header>
-
-          {/* Navigation Ribbon */}
-          <div className="bg-slate-900/60 border-b border-slate-800/80 px-6 py-2 flex space-x-2 text-xs font-semibold">
-            <button onClick={() => setActiveTab('home')} className={`px-4 py-2 rounded-lg transition-all ${activeTab === 'home' ? 'bg-cyan-950/80 text-cyan-300 border border-cyan-800' : 'text-slate-400 hover:text-slate-200'}`}>
-              🏠 1. Home Upload
-            </button>
-            <button onClick={() => isIntakeReady && setActiveTab('understanding')} disabled={!isIntakeReady} className={`px-4 py-2 rounded-lg transition-all flex items-center space-x-1 ${activeTab === 'understanding' ? 'bg-purple-950/80 text-purple-300 border border-purple-800' : isIntakeReady ? 'text-slate-400 hover:text-slate-200' : 'text-slate-600 opacity-50 cursor-not-allowed'}`}>
-              <span>🧠 2. AI Understanding</span>
-              {!isIntakeReady && <span className="text-[10px] ml-1">🔒</span>}
-            </button>
-            {['Test Cases', 'Synthetic Data', 'Playwright Scripts', 'Execution', 'Quality Report'].map((tab, idx) => (
-              <button key={idx} disabled className="px-3 py-2 text-slate-600 opacity-50 cursor-not-allowed flex items-center space-x-1">
-                <span>{tab}</span>
-                <span className="text-[10px]">🔒</span>
-              </button>
-            ))}
-          </div>
-
-          {/* Content Body */}
-          <main className="max-w-6xl mx-auto w-full p-6 flex-1 space-y-6">
-            {activeTab === 'home' && (
-              <div className="space-y-6">
-                <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 space-y-3">
-                  <h2 className="text-xl font-bold text-slate-100">F01 Home Upload Experience</h2>
-                  <p className="text-xs text-slate-400">Upload business requirement documents (.md, .pdf, .txt) and target codebase archive (.zip) to start execution.</p>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Doc Upload */}
-                  <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-6 space-y-4">
-                    <h3 className="text-sm font-bold text-slate-200">1. Requirement Specifications</h3>
-                    <input type="file" multiple accept=".md,.pdf,.txt,.docx" onChange={handleDocUpload} className="block w-full text-xs text-slate-400 bg-slate-950 p-3 rounded-lg border border-slate-800 cursor-pointer" />
-                    {appState?.intake_manifest?.doc_files?.length > 0 && (
-                      <div className="text-xs text-emerald-400 bg-emerald-950/40 p-3 rounded-lg border border-emerald-800">
-                        Uploaded Docs: {appState.intake_manifest.doc_files.join(', ')}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* ZIP Upload */}
-                  <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-6 space-y-4">
-                    <h3 className="text-sm font-bold text-slate-200">2. Codebase ZIP Archive</h3>
-                    <input type="file" accept=".zip" onChange={handleZipUpload} className="block w-full text-xs text-slate-400 bg-slate-950 p-3 rounded-lg border border-slate-800 cursor-pointer" />
-                    {appState?.intake_manifest?.total_files > 0 && (
-                      <div className="text-xs text-cyan-400 bg-cyan-950/40 p-3 rounded-lg border border-cyan-800">
-                        Extracted {appState.intake_manifest.total_files} codebase files.
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Status Timeline */}
-                <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-6 space-y-3">
-                  <div className="flex justify-between text-xs font-semibold">
-                    <span>Lifecycle State: <code className="text-cyan-300 font-bold">{appState?.status || 'idle'}</code></span>
-                    <span>Progress: {appState?.progress || 0}%</span>
-                  </div>
-                  <div className="w-full bg-slate-950 h-2 rounded-full overflow-hidden border border-slate-800">
-                    <div className="bg-gradient-to-r from-cyan-500 to-purple-500 h-full transition-all duration-300" style={{ width: `${appState?.progress || 0}%` }}></div>
-                  </div>
-                </div>
-
-                <div className="flex justify-end">
-                  <button onClick={() => setActiveTab('understanding')} disabled={!isIntakeReady} className={`px-6 py-3 rounded-xl text-xs font-bold transition-all ${isIntakeReady ? 'bg-gradient-to-r from-cyan-500 to-purple-600 text-white hover:opacity-90' : 'bg-slate-800 text-slate-500 cursor-not-allowed'}`}>
-                    Proceed to Understanding →
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {activeTab === 'understanding' && (
-              <div className="space-y-6">
-                <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 flex justify-between items-center">
-                  <div>
-                    <h2 className="text-xl font-bold text-slate-100">F02 AI-Required Understanding Engine</h2>
-                    <p className="text-xs text-slate-400">Generates structured understanding with AI provenance. Fails fast if AI key or model is invalid.</p>
-                  </div>
-                  <button onClick={handleStartUnderstanding} disabled={isAnalyzing} className="px-5 py-2.5 rounded-xl text-xs font-bold bg-gradient-to-r from-purple-600 to-indigo-600 hover:opacity-90 text-white">
-                    {isAnalyzing ? 'Analyzing with AI...' : 'Start AI Analysis'}
-                  </button>
-                </div>
-
-                {/* Fail-fast diagnostics surface */}
-                {errorDiagnostics && (
-                  <div className="bg-rose-950/40 border border-rose-800 rounded-xl p-6 space-y-3 text-xs">
-                    <h3 className="font-bold text-rose-300 text-sm">❌ AI Fail-Fast Execution Error</h3>
-                    <p className="text-rose-200">Error Code: <code className="font-mono text-white font-bold">{errorDiagnostics.error_code}</code></p>
-                    <p className="text-rose-200">{errorDiagnostics.error_message}</p>
-                    {errorDiagnostics.diagnostics && (
-                      <pre className="bg-slate-950 p-3 rounded text-rose-300 font-mono text-[11px] overflow-x-auto">{JSON.stringify(errorDiagnostics.diagnostics, null, 2)}</pre>
-                    )}
-                  </div>
-                )}
-
-                {/* AI Provenance & Output */}
-                {understanding && (
-                  <div className="space-y-6">
-                    <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-5 space-y-2 text-xs">
-                      <h3 className="font-bold text-cyan-300">AI Provenance Metadata</h3>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-1 font-mono">
-                        <div><span className="text-slate-500">Provider:</span> {understanding.provenance?.provider}</div>
-                        <div><span className="text-slate-500">Model:</span> {understanding.provenance?.model || 'gemini-1.5-flash'}</div>
-                        <div><span className="text-slate-500">Fallback Used:</span> <span className="text-indigo-400">{String(understanding.provenance?.fallback_used)}</span></div>
-                        <div><span className="text-slate-500">Status:</span> <span className="text-emerald-400">{understanding.validation_status}</span></div>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-5 space-y-2">
-                        <h4 className="text-xs font-bold text-slate-400 uppercase">Executive Summary</h4>
-                        <p className="text-xs text-slate-200 leading-relaxed">{understanding.summary}</p>
-                      </div>
-                      <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-5 space-y-2">
-                        <h4 className="text-xs font-bold text-slate-400 uppercase">Architecture Notes</h4>
-                        <p className="text-xs text-slate-200 leading-relaxed">{understanding.architecture_notes}</p>
-                      </div>
-                    </div>
-
-                    <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-5 space-y-3">
-                      <h4 className="text-xs font-bold text-slate-400 uppercase">Discovered Components ({understanding.components?.length})</h4>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        {understanding.components?.map((c, i) => (
-                          <div key={i} className="bg-slate-950 p-3 rounded-lg border border-slate-800 text-xs">
-                            <span className="font-bold text-indigo-300">{c.name}</span> ({c.type})
-                            <p className="text-slate-400 text-[11px] mt-1">{c.description}</p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </main>
-        </div>
-      );
-    }
-
-    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
-  </script>
-</body>
-</html>
-"""
+if dist_path.exists() and os.listdir(dist_path):
+    logger.info(f"Serving static production React build from {dist_path}")
+    app.mount("/", StaticFiles(directory=str(dist_path), html=True), name="static")
+else:
+    logger.info("React production build not detected at dist/. Serving API health check at root.")
+    @app.get("/", response_class=HTMLResponse)
+    def serve_api_welcome():
+        return """
+        <html>
+        <head><title>QET API Layer</title></head>
+        <body style="font-family: sans-serif; background-color: #0f172a; color: #f1f5f9; padding: 2rem;">
+            <h2>QET FastAPI Runtime Layer Active</h2>
+            <p>API endpoints are available at <code>/api/v1/*</code>.</p>
+            <p>To view the React UI, please run the dev server or build the frontend:</p>
+            <pre style="background-color: #020617; padding: 1rem; border-radius: 8px; color: #38bdf8;">
+cd qet-react-ui
+npm install
+npm run dev (dev server on port 5173)
+# or
+npm run build (build production bundle to host directly from FastAPI on port 8000)
+            </pre>
+        </body>
+        </html>
+        """
