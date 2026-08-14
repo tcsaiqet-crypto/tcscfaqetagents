@@ -1,4 +1,4 @@
-"""Tests for FastAPI Runtime Layer, state persistence, and failfast AI understanding."""
+﻿"""Tests for FastAPI Runtime Layer, state persistence, and failfast AI understanding."""
 
 import io
 import pytest
@@ -69,7 +69,7 @@ def test_understanding_ai_failfast_when_no_key(monkeypatch: pytest.MonkeyPatch):
     run_id = run_resp.json()["run_id"]
 
     from src.config import config
-    monkeypatch.setattr(type(config), "get_provider_api_key", lambda self, provider: "")
+    monkeypatch.setattr(type(config), "get_provider_api_keys", lambda self, provider: [])
 
     agent = UnderstandingAgent(run_id=run_id)
 
@@ -87,12 +87,16 @@ def test_ai_settings_round_trip():
     initial = get_resp.json()
     assert initial["active_provider"] in ["gemini", "gpt"]
     assert "providers" in initial
+    assert "model" in initial["runtime_state"]
 
     save_resp = client.post(
         "/api/v1/ai/settings",
         json={
             "active_provider": "gpt",
-            "provider_keys": {"gpt": "test-openai-key", "gemini": "test-gemini-key"},
+            "provider_keys": {
+                "gpt": "sk-live-abc123456789",
+                "gemini": "AIzaSyD-valid-looking-gemini-key",
+            },
         },
     )
     assert save_resp.status_code == 200
@@ -100,6 +104,100 @@ def test_ai_settings_round_trip():
     assert saved["active_provider"] == "gpt"
     assert saved["providers"]["gpt"]["key_present"] is True
     assert saved["providers"]["gemini"]["key_present"] is True
+    assert "model" in saved["runtime_state"]
+
+
+def test_ai_settings_verify_endpoint():
+    response = client.post("/api/v1/ai/settings/verify")
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["active_provider"] in ["gemini", "gpt"]
+    assert "verified_at" in payload
+    assert set(payload["results"].keys()) == {"gemini", "gpt"}
+    for provider_result in payload["results"].values():
+        assert "configured" in provider_result
+        assert "success" in provider_result
+        assert "model" in provider_result
+
+
+def test_gemini_candidate_key_fallback(monkeypatch: pytest.MonkeyPatch):
+    from src.services.llm_service import LLMService
+
+    service = LLMService()
+    calls: list[str] = []
+
+    monkeypatch.setattr(service, "list_gemini_candidates", lambda api_key: [] if api_key == "bad-key" else ["gemini-2.5-flash"])
+
+    def fake_call(model: str, api_key: str, prompt: str):
+        calls.append(api_key)
+        return None if api_key == "bad-key" else "{\"summary\": \"ok\", \"architecture_notes\": \"ok\"}"
+
+    monkeypatch.setattr(service, "_call_gemini_model", fake_call)
+
+    text, attempts = service.generate_with_gemini("prompt", ["bad-key", "good-key"])
+
+    assert text is not None
+    assert calls == ["good-key"]
+    assert attempts and attempts[0]["key_index"] == 0
+
+
+def test_ai_settings_rejects_placeholder_keys():
+    resp = client.post(
+        "/api/v1/ai/settings",
+        json={
+            "active_provider": "gpt",
+            "provider_keys": {
+                "gpt": "test-openai-key",
+                "gemini": "placeholder-gemini-key",
+            },
+        },
+    )
+    assert resp.status_code == 400
+    payload = resp.json()
+    assert payload["detail"]["error_code"] == "invalid_provider_key"
+    assert "invalid_keys" in payload["detail"]["diagnostics"]
+
+
+def test_verify_ai_settings_reports_missing_keys(monkeypatch: pytest.MonkeyPatch):
+    from src.config import config
+
+    monkeypatch.setattr(type(config), "get_provider_api_keys", lambda self, provider: [])
+
+    resp = client.post("/api/v1/ai/settings/verify")
+    assert resp.status_code == 200
+    payload = resp.json()
+    assert payload["results"]["gemini"]["success"] is False
+    assert payload["results"]["gemini"]["error_code"] == "provider_key_missing"
+    assert payload["results"]["gpt"]["success"] is False
+    assert payload["results"]["gpt"]["error_code"] == "provider_key_missing"
+
+
+def test_verify_ai_settings_success(monkeypatch: pytest.MonkeyPatch):
+    from src.config import config
+    from src.services.llm_service import LLMService
+
+    monkeypatch.setattr(type(config), "get_provider_api_key", lambda self, provider: "gem-key" if provider == "gemini" else "gpt-key")
+    monkeypatch.setattr(LLMService, "list_gemini_candidates", lambda self, api_key: ["gemini-2.5-flash", "gemini-2.0-flash"])
+    monkeypatch.setattr(LLMService, "get_gemini_model", lambda self, api_key: "gemini-2.5-flash")
+
+    class _MockResponse:
+        status_code = 200
+
+        @staticmethod
+        def json():
+            return {"data": [{"id": "gpt-4o-mini"}, {"id": "gpt-5.3-mini"}]}
+
+    import src.api.fastapi_app as fastapi_app_mod
+
+    monkeypatch.setattr(fastapi_app_mod.requests, "get", lambda *args, **kwargs: _MockResponse())
+
+    resp = client.post("/api/v1/ai/settings/verify")
+    assert resp.status_code == 200
+    payload = resp.json()
+    assert payload["results"]["gemini"]["success"] is True
+    assert payload["results"]["gemini"]["model"] == "gemini-2.5-flash"
+    assert payload["results"]["gpt"]["success"] is True
+    assert payload["results"]["gpt"]["model"] == "gpt-4o-mini"
 
 
 def test_get_requirement_coverage_endpoint():
@@ -262,3 +360,33 @@ def test_get_requirement_coverage_endpoint_with_seeded_state():
     assert cat_map["CAT-FUNC"]["covered_requirements"] == 1
     assert cat_map["CAT-FUNC"]["coverage_percentage"] == 50.0
 
+
+def test_list_runs_and_get_full_state():
+    """Verify GET /api/v1/runs lists saved runs and GET /api/v1/runs/{id} returns full state."""
+    # 1. Create a run
+    create_resp = client.post("/api/v1/runs", json={"project_name": "CFA Digital Journey"})
+    assert create_resp.status_code == 200
+    run_id = create_resp.json()["run_id"]
+
+    # 2. List runs
+    list_resp = client.get("/api/v1/runs")
+    assert list_resp.status_code == 200
+    runs = list_resp.json().get("runs", [])
+    assert len(runs) > 0
+    matched = [r for r in runs if r["run_id"] == run_id]
+    assert len(matched) == 1
+    assert matched[0]["project_name"] == "CFA Digital Journey"
+    assert "has_html_report" in matched[0]
+    assert "has_understanding" in matched[0]
+
+    # 3. Get full state
+    get_resp = client.get(f"/api/v1/runs/{run_id}")
+    assert get_resp.status_code == 200
+    assert get_resp.json()["run_id"] == run_id
+    assert get_resp.json()["state"]["status"] == "idle"
+
+
+def test_get_nonexistent_run_returns_404():
+    """Verify GET /api/v1/runs/nonexistent returns 404."""
+    resp = client.get("/api/v1/runs/RUN-NONEXISTENT-999999")
+    assert resp.status_code == 404

@@ -7,12 +7,12 @@ from datetime import datetime, timezone
 
 from fastapi import FastAPI, File, UploadFile, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, FileResponse
 from pydantic import BaseModel
 
 from schemas.contracts import AppState, ApplicationUnderstanding, IntakeManifest
 from src.config import config
-from src.services.run_state_service import create_run_state, load_run_state, update_run_status, save_run_state
+from src.services.run_state_service import create_run_state, load_run_state, update_run_status, save_run_state, list_saved_runs
 from src.services.ai_settings_store import load_ai_settings_dict, save_ai_settings_dict
 from src.services.zip_service import ZipService
 from src.agents.understanding_agent import UnderstandingAgent, AIRequiredFailureException
@@ -42,6 +42,24 @@ class CreateRunRequest(BaseModel):
 class CreateRunResponse(BaseModel):
     run_id: str
     state: AppState
+
+
+class RunSummary(BaseModel):
+    run_id: str
+    project_name: str = "CFA Digital Journey"
+    status: str
+    progress: float
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+    total_files: int = 0
+    doc_count: int = 0
+    has_html_report: bool = False
+    has_pdf_report: bool = False
+    has_understanding: bool = False
+
+
+class RunListResponse(BaseModel):
+    runs: List[RunSummary]
 
 
 class DocumentUploadResponse(BaseModel):
@@ -135,6 +153,36 @@ def update_ai_settings(req: UpdateAISettingsRequest):
 
     save_ai_settings_dict(active_provider=active_provider, provider_keys=provider_keys)
     return _build_ai_settings_response()
+
+
+@app.get("/api/v1/runs", response_model=RunListResponse)
+def list_runs():
+    """List all saved historical runs with artifact flags and metrics."""
+    runs = list_saved_runs()
+    return RunListResponse(runs=[RunSummary(**r) for r in runs])
+
+
+@app.get("/api/v1/runs/{run_id}", response_model=CreateRunResponse)
+def get_run_full_state(run_id: str):
+    """Fetch complete AppState for reopening/inspecting a specific historical run."""
+    state = load_run_state(run_id)
+    if not state:
+        raise HTTPException(status_code=404, detail=f"Run {run_id} not found")
+    return CreateRunResponse(run_id=state.run_id, state=state)
+
+
+@app.get("/api/v1/runs/{run_id}/reports/{filename}")
+def get_run_report_artifact(run_id: str, filename: str):
+    """Serve per-run report artifacts (HTML, PDF, JSON)."""
+    candidate_paths = [
+        Path("uploads") / run_id / "artifacts" / filename,
+        Path(__file__).resolve().parents[2] / "uploads" / run_id / "artifacts" / filename,
+    ]
+    for p in candidate_paths:
+        if p.exists():
+            media_type = "text/html" if filename.endswith(".html") else ("application/pdf" if filename.endswith(".pdf") else "application/json")
+            return FileResponse(str(p), media_type=media_type)
+    raise HTTPException(status_code=404, detail=f"Report {filename} not found for run {run_id}")
 
 
 @app.post("/api/v1/runs", response_model=CreateRunResponse)
@@ -1388,3 +1436,4 @@ def serve_vanilla_spa():
 </body>
 </html>
 """
+
